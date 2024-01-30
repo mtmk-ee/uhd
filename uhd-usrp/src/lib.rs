@@ -8,12 +8,11 @@ pub(crate) mod util;
 
 pub use buffer::{ArraySampleBuffer, SampleBuffer};
 pub use error::{last_error_message, Result, UhdError};
-use num::Complex;
 pub use sample::Sample;
 pub use time::DeviceTime;
 pub use usrp::*;
 
-use crate::error::try_uhd;
+pub(crate) use crate::error::try_uhd;
 
 pub fn driver_version() -> Result<String> {
     const BUFF_LEN: usize = 16;
