@@ -3,19 +3,19 @@ use std::{
     ptr::addr_of_mut,
 };
 
-use crate::{error::try_uhd, util::gen_getter, Result, UhdError};
-
-use super::{
-    tune::{TuneRequest, TuneResult},
-    Usrp,
+use crate::{
+    error::try_uhd,
+    usrp::{TuneRequest, TuneResult, Usrp},
+    util::gen_getter,
+    Result, UhdError,
 };
 
-pub struct RxChannelConfig<'usrp> {
+pub struct RxConfiguration<'usrp> {
     usrp: &'usrp Usrp,
     channel: usize,
 }
 
-impl<'usrp> RxChannelConfig<'usrp> {
+impl<'usrp> RxConfiguration<'usrp> {
     pub(crate) fn new(usrp: &'usrp Usrp, channel: usize) -> Self {
         Self { usrp, channel }
     }
@@ -100,28 +100,14 @@ impl<'usrp> RxChannelConfig<'usrp> {
             ))
         }
     }
-
-    pub fn tune(&self, req: &TuneRequest) -> Result<TuneResult> {
-        let req = req.inner();
-        let mut result = TuneResult::new();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_rx_freq(
-                self.usrp.handle(),
-                req as *const _ as *mut _,
-                self.channel,
-                result.inner_mut(),
-            )
-        })?;
-        Ok(result)
-    }
 }
 
-pub struct SetRxChannelConfig<'usrp> {
+pub struct RxConfigurationBuilder<'usrp> {
     usrp: &'usrp Usrp,
     channel: usize,
 }
 
-impl<'usrp> SetRxChannelConfig<'usrp> {
+impl<'usrp> RxConfigurationBuilder<'usrp> {
     pub(crate) fn new(usrp: &'usrp Usrp, channel: usize) -> Self {
         Self { usrp, channel }
     }
@@ -193,6 +179,36 @@ impl<'usrp> SetRxChannelConfig<'usrp> {
     pub fn set_agc_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_rx_agc(self.usrp.handle(), en, self.channel)
+        })?;
+        Ok(self)
+    }
+
+    pub fn set_bandwidth(self, bw: f64) -> Result<Self> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_rx_bandwidth(self.usrp.handle(), bw, self.channel)
+        })?;
+        Ok(self)
+    }
+
+    pub fn set_center_freq(self, freq: f64) -> Result<Self> {
+        self.tune(
+            &TuneRequest::new()
+                .center_freq(freq)
+                .rf_freq_unset()
+                .dsp_freq_unset(),
+        )
+    }
+
+    pub fn tune(self, req: &TuneRequest) -> Result<Self> {
+        let req = req.inner();
+        let mut result = TuneResult::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_rx_freq(
+                self.usrp.handle(),
+                req as *const _ as *mut _,
+                self.channel,
+                result.inner_mut(),
+            )
         })?;
         Ok(self)
     }

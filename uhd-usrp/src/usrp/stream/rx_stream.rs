@@ -5,17 +5,16 @@ use std::{
 };
 
 use crate::{
+    buffer::SampleBuffer,
     error::try_uhd,
-    usrp::{
-        args::{SampleType, StreamArgs},
-        metadata::RxMetadata,
-        Usrp,
-    },
+    usrp::{metadata::RxMetadata, Usrp},
     util::PhantomUnsync,
-    Result, UhdError,
+    DeviceTime, Result, Sample, UhdError,
 };
 
-pub struct RxStream<T: SampleType> {
+use super::stream_args::StreamArgs;
+
+pub struct RxStream<T: Sample> {
     handle: uhd_usrp_sys::uhd_rx_streamer_handle,
     samples_per_buffer: usize,
     channels: usize,
@@ -23,7 +22,7 @@ pub struct RxStream<T: SampleType> {
     _ugh: PhantomData<T>,
 }
 
-impl<T: SampleType> RxStream<T> {
+impl<T: Sample> RxStream<T> {
     pub(crate) fn open(usrp: &Usrp, args: StreamArgs<T>) -> Result<Self> {
         let mut handle: uhd_usrp_sys::uhd_rx_streamer_handle = std::ptr::null_mut();
         let args = args.into_sys_guard();
@@ -79,19 +78,19 @@ impl<T: SampleType> RxStream<T> {
     }
 }
 
-pub struct RxStreamReaderOptions<'a, T: SampleType> {
+pub struct RxStreamReaderOptions<'a, T: Sample> {
     stream: &'a RxStream<T>,
-    wait_until: Option<Duration>,
+    at_time: Option<DeviceTime>,
     timeout: Option<Duration>,
     one_packet: bool,
     limit: Option<(usize, bool)>,
 }
 
-impl<'a, T: SampleType> RxStreamReaderOptions<'a, T> {
+impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
     pub(crate) fn new(stream: &'a RxStream<T>) -> Self {
         Self {
             stream,
-            wait_until: None,
+            at_time: None,
             timeout: None,
             one_packet: false,
             limit: None,
@@ -103,8 +102,8 @@ impl<'a, T: SampleType> RxStreamReaderOptions<'a, T> {
         self
     }
 
-    pub fn with_delay(mut self, delay: Duration) -> Self {
-        self.wait_until = Some(delay);
+    pub fn at_time(mut self, delay: DeviceTime) -> Self {
+        self.at_time = Some(delay);
         self
     }
 
@@ -122,7 +121,7 @@ impl<'a, T: SampleType> RxStreamReaderOptions<'a, T> {
         let mut cmd = uhd_usrp_sys::uhd_stream_cmd_t {
             stream_mode: uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_START_CONTINUOUS,
             num_samps: 0,
-            stream_now: self.wait_until.is_none(),
+            stream_now: self.at_time.is_none(),
             time_spec_full_secs: 0,
             time_spec_frac_secs: 0.0,
         };
@@ -134,9 +133,9 @@ impl<'a, T: SampleType> RxStreamReaderOptions<'a, T> {
                 uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_NUM_SAMPS_AND_MORE
             };
         }
-        if let Some(delay) = self.wait_until {
-            cmd.time_spec_full_secs = delay.as_secs() as i64;
-            cmd.time_spec_frac_secs = delay.as_secs_f64() - delay.as_secs() as f64;
+        if let Some(at_time) = self.at_time {
+            cmd.time_spec_full_secs = at_time.full_seconds() as i64;
+            cmd.time_spec_frac_secs = at_time.fractional_seconds();
         }
 
         try_uhd!(unsafe {
@@ -150,39 +149,69 @@ impl<'a, T: SampleType> RxStreamReaderOptions<'a, T> {
     }
 }
 
-pub struct RxStreamReader<'a, T: SampleType> {
+pub struct RxStreamReader<'a, T: Sample> {
     stream: &'a RxStream<T>,
     timeout: Option<Duration>,
     one_packet: bool,
 }
 
-impl<'a, T: SampleType> RxStreamReader<'a, T> {
-    pub fn recv(&mut self, buffs: &[&mut [T]], metadata: &mut RxMetadata) -> Result<usize> {
-        if buffs.len() > 1 && buffs.iter().any(|e| e.len() != buffs[0].len()) {
+impl<'a, T: Sample> RxStreamReader<'a, T> {
+    pub fn recv(
+        &mut self,
+        buff: &mut impl SampleBuffer<T>,
+        metadata: &mut RxMetadata,
+    ) -> Result<usize> {
+        if buff.channels() != self.stream.channels() {
             return Err(UhdError::Index);
         }
-        let mut ptr_buffs = buffs
-            .iter()
-            .map(|buff| buff.as_ptr().cast_mut())
-            .collect::<Vec<_>>();
+        unsafe { self.recv_unchecked(buff, metadata) }
+    }
+
+    pub fn recv_until<F: Fn(&mut B, &mut RxMetadata) -> bool, B: SampleBuffer<T>>(
+        &mut self,
+        buff: &mut B,
+        metadata: &mut RxMetadata,
+        predicate: F,
+    ) -> Result<()> {
+        loop {
+            self.recv(buff, metadata)?;
+            if !predicate(buff, metadata) {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    pub unsafe fn recv_unchecked(
+        &mut self,
+        buff: &mut impl SampleBuffer<T>,
+        metadata: &mut RxMetadata,
+    ) -> Result<usize> {
+        self.recv_raw(buff.as_mut_ptr(), buff.samples_per_channel(), metadata)
+    }
+
+    pub unsafe fn recv_raw(
+        &mut self,
+        buff: *mut *mut T,
+        samples_per_channel: usize,
+        metadata: &mut RxMetadata,
+    ) -> Result<usize> {
         let mut received = 0;
         let mut handle = metadata.handle();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_streamer_recv(
-                self.stream.handle,
-                ptr_buffs.as_mut_ptr().cast(),
-                buffs[0].len(),
-                addr_of_mut!(handle),
-                self.timeout.unwrap_or(Duration::ZERO).as_secs_f64(),
-                self.one_packet,
-                addr_of_mut!(received),
-            )
-        })?;
+        try_uhd!(uhd_usrp_sys::uhd_rx_streamer_recv(
+            self.stream.handle,
+            buff.cast(),
+            samples_per_channel,
+            addr_of_mut!(handle),
+            self.timeout.unwrap_or(Duration::ZERO).as_secs_f64(),
+            self.one_packet,
+            addr_of_mut!(received),
+        ))?;
         Ok(received)
     }
 }
 
-impl<'a, T: SampleType> Drop for RxStreamReader<'a, T> {
+impl<'a, T: Sample> Drop for RxStreamReader<'a, T> {
     fn drop(&mut self) {
         let cmd = uhd_usrp_sys::uhd_stream_cmd_t {
             stream_mode: uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_STOP_CONTINUOUS,

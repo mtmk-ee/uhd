@@ -3,15 +3,16 @@ use std::{marker::PhantomData, ptr::addr_of_mut, time::Duration};
 use crate::{
     error::try_uhd,
     usrp::{
-        args::{SampleType, StreamArgs},
         metadata::{TxMetadata, TxMetadataHandle},
         Usrp,
     },
     util::PhantomUnsync,
-    Result, UhdError,
+    Result, Sample, UhdError,
 };
 
-pub struct TxStream<T: SampleType> {
+use super::StreamArgs;
+
+pub struct TxStream<T: Sample> {
     handle: uhd_usrp_sys::uhd_tx_streamer_handle,
     samples_per_buffer: usize,
     channels: usize,
@@ -19,7 +20,7 @@ pub struct TxStream<T: SampleType> {
     _ugh: PhantomData<T>,
 }
 
-impl<T: SampleType> TxStream<T> {
+impl<T: Sample> TxStream<T> {
     pub(crate) fn open(usrp: &Usrp, args: StreamArgs<T>) -> Result<Self> {
         let mut handle: uhd_usrp_sys::uhd_tx_streamer_handle = std::ptr::null_mut();
         let args = args.into_sys_guard();
@@ -106,7 +107,7 @@ impl<T: SampleType> TxStream<T> {
     }
 }
 
-impl<T: SampleType> Drop for TxStream<T> {
+impl<T: Sample> Drop for TxStream<T> {
     fn drop(&mut self) {
         unsafe {
             uhd_usrp_sys::uhd_tx_streamer_free(addr_of_mut!(self.handle));

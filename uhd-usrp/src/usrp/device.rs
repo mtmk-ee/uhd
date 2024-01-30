@@ -1,10 +1,12 @@
-use std::{ffi::CString, marker::PhantomData, ptr::addr_of_mut, time::Duration};
+use std::{ffi::CString, marker::PhantomData, ptr::addr_of_mut};
 
-use crate::{error::try_uhd, util::PhantomUnsync, Result};
+use crate::{
+    error::try_uhd, stream::StreamArgs, util::PhantomUnsync, DeviceTime, Result, Sample,
+};
 
 use super::{
-    args::{DeviceArgs, SampleType, StreamArgs},
-    configuration::{RxChannelConfig, SetRxChannelConfig},
+    DeviceArgs,
+    channel_config::{RxConfiguration, RxConfigurationBuilder},
     stream::{RxStream, TxStream},
 };
 
@@ -28,12 +30,12 @@ impl Usrp {
         self.handle
     }
 
-    pub fn rx_config<'a>(&'a mut self, channel: usize) -> RxChannelConfig<'a> {
-        RxChannelConfig::new(self, channel)
+    pub fn rx_config<'a>(&'a mut self, channel: usize) -> RxConfiguration<'a> {
+        RxConfiguration::new(self, channel)
     }
 
-    pub fn set_rx_config<'a>(&'a mut self, channel: usize) -> SetRxChannelConfig<'a> {
-        SetRxChannelConfig::new(self, channel)
+    pub fn set_rx_config<'a>(&'a mut self, channel: usize) -> RxConfigurationBuilder<'a> {
+        RxConfigurationBuilder::new(self, channel)
     }
 
     pub fn rx_channels(&self) -> Result<usize> {
@@ -44,20 +46,34 @@ impl Usrp {
         Ok(channels)
     }
 
-    pub fn tx_stream<T: SampleType>(&self, args: StreamArgs<T>) -> Result<TxStream<T>> {
+    pub fn tx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<TxStream<T>> {
         TxStream::open(self, args)
     }
 
-    pub fn rx_stream<T: SampleType>(&self, args: StreamArgs<T>) -> Result<RxStream<T>> {
+    pub fn rx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<RxStream<T>> {
         RxStream::open(self, args)
     }
 
-    pub fn set_time(&self, offset: Duration) -> Result<()> {
+    pub fn time(&self) -> Result<DeviceTime> {
+        let mut full_secs = 0;
+        let mut frac_secs = 0.0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_time_now(
+                self.handle,
+                0,
+                addr_of_mut!(full_secs),
+                addr_of_mut!(frac_secs),
+            )
+        })?;
+        Ok(DeviceTime::from_parts(full_secs as u64, frac_secs))
+    }
+
+    pub fn set_time(&self, time: DeviceTime) -> Result<()> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_time_now(
                 self.handle,
-                offset.as_secs() as i64,
-                offset.as_secs_f64() - offset.as_secs() as f64,
+                time.full_seconds() as i64,
+                time.fractional_seconds(),
                 0,
             )
         })?;

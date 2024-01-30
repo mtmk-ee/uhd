@@ -1,5 +1,8 @@
-mod rx;
-mod tx;
+mod rx_stream;
+mod stream_args;
+mod tx_stream;
 
-pub use rx::{RxStream, RxStreamReader, RxStreamReaderOptions};
-pub use tx::TxStream;
+pub use rx_stream::{RxStream, RxStreamReader, RxStreamReaderOptions};
+pub(crate) use stream_args::StreamArgsSysGuard;
+pub use stream_args::{CpuFormat, OtwFormat, StreamArgs, UnderflowPolicy};
+pub use tx_stream::TxStream;
