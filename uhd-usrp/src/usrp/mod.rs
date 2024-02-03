@@ -1,4 +1,4 @@
-mod channel_config;
+mod channel;
 mod device;
 pub mod device_args;
 mod metadata;

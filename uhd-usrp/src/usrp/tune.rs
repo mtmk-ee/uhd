@@ -5,6 +5,7 @@ pub enum TuneRequestPolicy {
     Manual = uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_MANUAL,
 }
 
+#[derive(Clone, Debug)]
 pub struct TuneRequest {
     inner: uhd_usrp_sys::uhd_tune_request_t,
 }
@@ -73,6 +74,7 @@ impl TuneRequest {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct TuneResult {
     inner: uhd_usrp_sys::uhd_tune_result_t,
 }
@@ -90,8 +92,8 @@ impl TuneResult {
         }
     }
 
-    pub(crate) fn from_sys(result: uhd_usrp_sys::uhd_tune_result_t) -> Self {
-        Self { inner: result }
+    pub(crate) fn inner(&mut self) -> &uhd_usrp_sys::uhd_tune_result_t {
+        &self.inner
     }
 
     pub(crate) fn inner_mut(&mut self) -> &mut uhd_usrp_sys::uhd_tune_result_t {

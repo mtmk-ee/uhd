@@ -1,12 +1,8 @@
-use std::{marker::PhantomData, ptr::addr_of_mut, time::Duration};
+use std::{cell::Cell, marker::PhantomData, ptr::addr_of_mut, time::Duration};
 
 use crate::{
     error::try_uhd,
-    usrp::{
-        metadata::{TxMetadata, TxMetadataHandle},
-        Usrp,
-    },
-    util::PhantomUnsync,
+    usrp::{metadata::TxMetadata, Usrp},
     Result, Sample, UhdError,
 };
 
@@ -16,14 +12,14 @@ pub struct TxStream<T: Sample> {
     handle: uhd_usrp_sys::uhd_tx_streamer_handle,
     samples_per_buffer: usize,
     channels: usize,
-    _unsync: PhantomUnsync,
+    _unsync: PhantomData<Cell<T>>,
     _ugh: PhantomData<T>,
 }
 
 impl<T: Sample> TxStream<T> {
     pub(crate) fn open(usrp: &Usrp, args: StreamArgs<T>) -> Result<Self> {
         let mut handle: uhd_usrp_sys::uhd_tx_streamer_handle = std::ptr::null_mut();
-        let args = args.into_sys_guard();
+        let args = args.leak();
         try_uhd!(unsafe { uhd_usrp_sys::uhd_tx_streamer_make(&mut handle) })?;
         let res = try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_tx_stream(
@@ -82,14 +78,13 @@ impl<T: Sample> TxStream<T> {
         }
         let mut buff = data.iter().map(|buff| buff.as_ptr()).collect::<Vec<_>>();
         let mut sent = 0;
-        let metadata = TxMetadataHandle::from_metadata(metadata)?;
-        let mut metadata_handle = metadata.handle();
+        let handle = metadata.to_handle()?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_tx_streamer_send(
                 self.handle,
                 buff.as_mut_ptr().cast(),
                 data[0].len(),
-                addr_of_mut!(metadata_handle),
+                handle.as_mut_mut_ptr(),
                 timeout.as_secs_f64(),
                 addr_of_mut!(sent),
             )

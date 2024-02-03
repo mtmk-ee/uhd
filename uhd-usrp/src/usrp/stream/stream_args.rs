@@ -16,8 +16,8 @@ impl<T: Sample> StreamArgs<T> {
         Default::default()
     }
 
-    pub(crate) fn into_sys_guard(self) -> StreamArgsSysGuard {
-        let cpu_format = CString::new(T::name()).unwrap();
+    pub(crate) fn leak(self) -> LeakedStreamArgs {
+        let cpu_format: CString = CString::new(T::name()).unwrap();
         let otw_format = self.otw_format.map(|f| f.as_str()).unwrap_or("");
         let args = self
             .args
@@ -29,7 +29,7 @@ impl<T: Sample> StreamArgs<T> {
         let n_channels = channels.len();
         channels.shrink_to_fit();
 
-        StreamArgsSysGuard {
+        LeakedStreamArgs {
             inner: uhd_usrp_sys::uhd_stream_args_t {
                 cpu_format: CString::new(cpu_format).unwrap().into_raw(),
                 otw_format: CString::new(otw_format).unwrap().into_raw(),
@@ -83,17 +83,17 @@ impl<T: Sample> Default for StreamArgs<T> {
     }
 }
 
-pub(crate) struct StreamArgsSysGuard {
+pub(crate) struct LeakedStreamArgs {
     inner: uhd_usrp_sys::uhd_stream_args_t,
 }
 
-impl StreamArgsSysGuard {
+impl LeakedStreamArgs {
     pub fn inner(&self) -> &uhd_usrp_sys::uhd_stream_args_t {
         &self.inner
     }
 }
 
-impl Drop for StreamArgsSysGuard {
+impl Drop for LeakedStreamArgs {
     fn drop(&mut self) {
         unsafe {
             let _ = CString::from_raw(self.inner.cpu_format);

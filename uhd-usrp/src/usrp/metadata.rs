@@ -1,9 +1,8 @@
 use std::{ptr::addr_of_mut, time::Duration};
 
 use num_enum::TryFromPrimitive;
-use uhd_usrp_sys::uhd_rx_metadata_handle;
 
-use crate::{error::try_uhd, Result, UhdError};
+use crate::{error::try_uhd, ffi::OwnedHandle, Result, UhdError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TxMetadata {
@@ -13,10 +12,6 @@ pub struct TxMetadata {
 }
 
 impl TxMetadata {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
     pub fn offset(mut self, offset: Option<Duration>) -> Self {
         self.offset = offset;
         self
@@ -30,14 +25,10 @@ impl TxMetadata {
         self.end_of_burst = eob;
         self
     }
-}
 
-pub(crate) struct TxMetadataHandle(uhd_usrp_sys::uhd_tx_metadata_handle);
-
-impl TxMetadataHandle {
-    pub fn from_metadata(metadata: &TxMetadata) -> Result<Self> {
+    pub(crate) fn to_handle(self) -> Result<OwnedHandle<uhd_usrp_sys::uhd_tx_metadata_t>> {
         let mut handle = std::ptr::null_mut();
-        let (full_secs, frac_secs) = match metadata.offset {
+        let (full_secs, frac_secs) = match self.offset {
             Some(dur) => (
                 dur.as_secs() as i64,
                 dur.as_secs_f64() - dur.as_secs() as f64,
@@ -47,26 +38,14 @@ impl TxMetadataHandle {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_tx_metadata_make(
                 addr_of_mut!(handle),
-                metadata.offset.is_some(),
+                self.offset.is_some(),
                 full_secs,
                 frac_secs,
-                metadata.start_of_burst,
-                metadata.end_of_burst,
+                self.start_of_burst,
+                self.end_of_burst,
             )
         })?;
-        Ok(TxMetadataHandle(handle))
-    }
-
-    pub fn handle(&self) -> uhd_usrp_sys::uhd_tx_metadata_handle {
-        self.0
-    }
-}
-
-impl Drop for TxMetadataHandle {
-    fn drop(&mut self) {
-        unsafe {
-            uhd_usrp_sys::uhd_tx_metadata_free(addr_of_mut!(self.0));
-        }
+        Ok(unsafe { OwnedHandle::from_ptr(handle, uhd_usrp_sys::uhd_tx_metadata_free) })
     }
 }
 
@@ -84,24 +63,31 @@ pub enum RxErrorcode {
     BadPacket = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_BAD_PACKET,
 }
 
-
-pub struct RxMetadata(uhd_usrp_sys::uhd_rx_metadata_handle);
+pub struct RxMetadata {
+    handle: OwnedHandle<uhd_usrp_sys::uhd_rx_metadata_t>,
+}
 
 impl RxMetadata {
     pub fn new() -> Result<Self> {
-        let mut handle = std::ptr::null_mut();
-        try_uhd!(unsafe { uhd_usrp_sys::uhd_rx_metadata_make(addr_of_mut!(handle)) })?;
-        Ok(Self(handle))
+        Ok(Self {
+            handle: OwnedHandle::new(
+                uhd_usrp_sys::uhd_rx_metadata_make,
+                uhd_usrp_sys::uhd_rx_metadata_free,
+            )?,
+        })
     }
 
-    pub fn handle(&self) -> uhd_rx_metadata_handle {
-        self.0
+    pub(crate) fn handle_mut(&mut self) -> &mut OwnedHandle<uhd_usrp_sys::uhd_rx_metadata_t> {
+        &mut self.handle
     }
 
     pub fn time_spec(&self) -> Result<Option<Duration>> {
         let mut has_time_spec = false;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_has_time_spec(self.0, addr_of_mut!(has_time_spec))
+            uhd_usrp_sys::uhd_rx_metadata_has_time_spec(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(has_time_spec),
+            )
         })?;
         if !has_time_spec {
             return Ok(None);
@@ -111,7 +97,7 @@ impl RxMetadata {
         let mut frac_secs = 0.0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_rx_metadata_time_spec(
-                self.0,
+                self.handle.as_mut_ptr(),
                 addr_of_mut!(full_secs),
                 addr_of_mut!(frac_secs),
             )
@@ -123,7 +109,10 @@ impl RxMetadata {
     pub fn start_of_burst(&self) -> Result<bool> {
         let mut result = false;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_start_of_burst(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_start_of_burst(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(result),
+            )
         })?;
         Ok(result)
     }
@@ -131,7 +120,10 @@ impl RxMetadata {
     pub fn end_of_burst(&self) -> Result<bool> {
         let mut result = false;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_end_of_burst(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_end_of_burst(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(result),
+            )
         })?;
         Ok(result)
     }
@@ -139,7 +131,10 @@ impl RxMetadata {
     pub fn fragment_offset(&self) -> Result<usize> {
         let mut result = 0;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_fragment_offset(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_fragment_offset(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(result),
+            )
         })?;
         Ok(result)
     }
@@ -147,7 +142,10 @@ impl RxMetadata {
     pub fn more_fragments(&self) -> Result<bool> {
         let mut result = false;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_more_fragments(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_more_fragments(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(result),
+            )
         })?;
         Ok(result)
     }
@@ -155,7 +153,10 @@ impl RxMetadata {
     pub fn out_of_sequence(&self) -> Result<bool> {
         let mut result = false;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_out_of_sequence(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_out_of_sequence(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(result),
+            )
         })?;
         Ok(result)
     }
@@ -164,16 +165,8 @@ impl RxMetadata {
         let mut result =
             uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_NONE;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_error_code(self.0, addr_of_mut!(result))
+            uhd_usrp_sys::uhd_rx_metadata_error_code(self.handle.as_mut_ptr(), addr_of_mut!(result))
         })?;
         Ok(RxErrorcode::try_from_primitive(result).or(Err(UhdError::Unknown))?)
-    }
-}
-
-impl Drop for RxMetadata {
-    fn drop(&mut self) {
-        unsafe {
-            uhd_usrp_sys::uhd_rx_metadata_free(addr_of_mut!(self.0));
-        }
     }
 }

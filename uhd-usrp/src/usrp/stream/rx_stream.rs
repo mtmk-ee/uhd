@@ -1,4 +1,5 @@
 use std::{
+    cell::Cell,
     marker::PhantomData,
     ptr::{addr_of, addr_of_mut},
     time::Duration,
@@ -8,7 +9,6 @@ use crate::{
     buffer::SampleBuffer,
     error::try_uhd,
     usrp::{metadata::RxMetadata, Usrp},
-    util::PhantomUnsync,
     DeviceTime, Result, Sample, UhdError,
 };
 
@@ -18,14 +18,14 @@ pub struct RxStream<T: Sample> {
     handle: uhd_usrp_sys::uhd_rx_streamer_handle,
     samples_per_buffer: usize,
     channels: usize,
-    _unsync: PhantomUnsync,
+    _unsync: PhantomData<Cell<T>>,
     _ugh: PhantomData<T>,
 }
 
 impl<T: Sample> RxStream<T> {
     pub(crate) fn open(usrp: &Usrp, args: StreamArgs<T>) -> Result<Self> {
         let mut handle: uhd_usrp_sys::uhd_rx_streamer_handle = std::ptr::null_mut();
-        let args = args.into_sys_guard();
+        let args = args.leak();
         try_uhd!(unsafe { uhd_usrp_sys::uhd_rx_streamer_make(&mut handle) })?;
         let res = try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_rx_stream(
@@ -197,12 +197,12 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
         metadata: &mut RxMetadata,
     ) -> Result<usize> {
         let mut received = 0;
-        let mut handle = metadata.handle();
+        let handle = metadata.handle_mut();
         try_uhd!(uhd_usrp_sys::uhd_rx_streamer_recv(
             self.stream.handle,
             buff.cast(),
             samples_per_channel,
-            addr_of_mut!(handle),
+            handle.as_mut_mut_ptr(),
             self.timeout.unwrap_or(Duration::ZERO).as_secs_f64(),
             self.one_packet,
             addr_of_mut!(received),
