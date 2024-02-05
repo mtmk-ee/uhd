@@ -3,11 +3,13 @@ name = "uhd-usrp"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-num = "0.4.1"
+num-complex = { version = "^0.4", optional = true }
 num_enum = "0.7.2"
 once_cell = "1.19.0"
 thiserror = "1.0.56"
-uhd-usrp-sys = { path = "../uhd-usrp-sys"}
+uhd-usrp-sys = { path = "../uhd-usrp-sys" }
+
+[features]
+default = ["num"]
+num = ["dep:num-complex"]
