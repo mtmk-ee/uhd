@@ -3,9 +3,7 @@ use std::{ffi::CString, marker::PhantomData, ptr::addr_of_mut};
 use crate::{error::try_uhd, stream::StreamArgs, DeviceTime, Result, Sample};
 
 use super::{
-    channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
-    stream::{RxStream, TxStream},
-    DeviceArgs,
+    channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR}, mboard::Motherboard, stream::{RxStream, TxStream}, DeviceArgs
 };
 
 pub struct Usrp {
@@ -34,6 +32,10 @@ impl Usrp {
 
     pub(crate) fn handle(&self) -> uhd_usrp_sys::uhd_usrp_handle {
         self.handle
+    }
+
+    pub fn mboard(&self, mboard: usize) -> Motherboard {
+        Motherboard::new(self, mboard)
     }
 
     pub fn rx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
@@ -82,27 +84,12 @@ impl Usrp {
         RxStream::open(self, args)
     }
 
-    pub fn time(&self) -> Result<DeviceTime> {
-        let mut full_secs = 0;
-        let mut frac_secs = 0.0;
+    pub fn set_time_unknown_pps(&mut self, time: DeviceTime) -> Result<()> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_time_now(
-                self.handle,
-                0,
-                addr_of_mut!(full_secs),
-                addr_of_mut!(frac_secs),
-            )
-        })?;
-        Ok(DeviceTime::from_parts(full_secs as u64, frac_secs))
-    }
-
-    pub fn set_time(&self, time: DeviceTime) -> Result<()> {
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_now(
+            uhd_usrp_sys::uhd_usrp_set_time_unknown_pps(
                 self.handle,
                 time.full_seconds() as i64,
                 time.fractional_seconds(),
-                0,
             )
         })?;
         Ok(())

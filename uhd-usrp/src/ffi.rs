@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::{
     ffi::{CStr, CString},
     mem::MaybeUninit,
@@ -136,4 +138,3 @@ impl<T> Drop for OwnedHandle<T> {
         }
     }
 }
-

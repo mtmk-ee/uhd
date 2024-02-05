@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 #[repr(u32)]
 pub enum TuneRequestPolicy {
     None = uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_NONE,
