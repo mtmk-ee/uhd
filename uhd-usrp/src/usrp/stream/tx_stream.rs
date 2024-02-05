@@ -109,3 +109,5 @@ impl<T: Sample> Drop for TxStream<T> {
         }
     }
 }
+
+unsafe impl<T: Sample + Send> Send for TxStream<T> {}

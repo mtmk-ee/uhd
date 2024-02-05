@@ -149,6 +149,8 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
     }
 }
 
+unsafe impl<T: Sample + Send> Send for RxStream<T> {}
+
 pub struct RxStreamReader<'a, T: Sample> {
     stream: &'a RxStream<T>,
     timeout: Option<Duration>,
