@@ -2,6 +2,13 @@
 name = "uhd-usrp"
 version = "0.1.0"
 edition = "2021"
+authors = ["Mitchell Matsumori-Kelly"]
+rust-version = "1.60"
+description = "Rust bindings for Ettus Research's USRP Hardware Driver"
+readme = "../README.md"
+repository = "https://github.com/mtmk-ee/uhd-rs"
+keywords = ["usrp", "uhd", "sdr", "radio"]
+categories = ["api-bindings", "hardware-support"]
 
 [dependencies]
 num-complex = { version = "^0.4", optional = true }
