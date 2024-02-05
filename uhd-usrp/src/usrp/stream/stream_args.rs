@@ -113,6 +113,10 @@ pub enum CpuFormat {
     ComplexFloat32,
     ComplexInt16,
     ComplexInt8,
+    Float64,
+    Float32,
+    Int16,
+    Int8,
 }
 
 impl CpuFormat {
@@ -122,6 +126,10 @@ impl CpuFormat {
             CpuFormat::ComplexFloat32 => "fc32",
             CpuFormat::ComplexInt16 => "sc16",
             CpuFormat::ComplexInt8 => "sc8",
+            CpuFormat::Float64 => "f64",
+            CpuFormat::Float32 => "f32",
+            CpuFormat::Int16 => "s16",
+            CpuFormat::Int8 => "s8",
         }
     }
 }
@@ -131,6 +139,8 @@ pub enum OtwFormat {
     ComplexInt16,
     ComplexInt12,
     ComplexInt8,
+    Int16,
+    Int8,
 }
 
 impl OtwFormat {
@@ -139,6 +149,8 @@ impl OtwFormat {
             OtwFormat::ComplexInt16 => "sc16",
             OtwFormat::ComplexInt12 => "sc12",
             OtwFormat::ComplexInt8 => "sc8",
+            OtwFormat::Int16 => "s16",
+            OtwFormat::Int8 => "s8",
         }
     }
 }
