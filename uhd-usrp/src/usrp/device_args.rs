@@ -24,35 +24,6 @@ impl DeviceArgs {
         self
     }
 
-    pub fn serial(mut self, serial: &str) -> Self {
-        self.serial = Some(serial.to_owned());
-        self
-    }
-
-    pub fn resource(mut self, resource: &str) -> Self {
-        self.resource = Some(resource.to_owned());
-        self
-    }
-
-    pub fn name(mut self, name: &str) -> Self {
-        self.name = Some(name.to_owned());
-        self
-    }
-
-    pub fn type_(mut self, type_: &str) -> Self {
-        self.type_ = Some(type_.to_owned());
-        self
-    }
-
-    pub fn vid_pid(mut self, vid: &str, pid: &str) -> Self {
-        self.vid_pid = Some((vid.to_owned(), pid.to_owned()));
-        self
-    }
-
-    pub fn open(self) -> Result<Usrp> {
-        Usrp::open(self)
-    }
-
     fn iter(&self) -> impl Iterator<Item = String> + '_ {
         let mut args = vec![];
         if let Some(addr) = &self.addr {
@@ -75,6 +46,35 @@ impl DeviceArgs {
             args.push(format!("pid={pid}"));
         }
         args.into_iter()
+    }
+
+    pub fn name(mut self, name: &str) -> Self {
+        self.name = Some(name.to_owned());
+        self
+    }
+
+    pub fn open(self) -> Result<Usrp> {
+        Usrp::open(self)
+    }
+
+    pub fn resource(mut self, resource: &str) -> Self {
+        self.resource = Some(resource.to_owned());
+        self
+    }
+
+    pub fn serial(mut self, serial: &str) -> Self {
+        self.serial = Some(serial.to_owned());
+        self
+    }
+
+    pub fn type_(mut self, type_: &str) -> Self {
+        self.type_ = Some(type_.to_owned());
+        self
+    }
+
+    pub fn vid_pid(mut self, vid: &str, pid: &str) -> Self {
+        self.vid_pid = Some((vid.to_owned(), pid.to_owned()));
+        self
     }
 }
 

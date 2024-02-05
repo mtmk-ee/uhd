@@ -1,5 +1,6 @@
 use std::{ops::Add, time::Duration};
 
+#[derive(Clone, Copy, Debug)]
 pub struct DeviceTime(Duration);
 
 impl DeviceTime {

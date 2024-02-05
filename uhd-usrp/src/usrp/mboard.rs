@@ -15,55 +15,75 @@ impl<'a> Motherboard<'a> {
         Self { usrp, mboard }
     }
 
-    pub fn name(&self) -> Result<String> {
-        let mut result = FfiString::<16>::new();
+    pub fn clock_source(&self) -> Result<String> {
+        let mut name = FfiString::<16>::new();
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_mboard_name(
+            uhd_usrp_sys::uhd_usrp_get_clock_source(
                 self.usrp.handle(),
                 self.mboard,
-                result.as_mut_ptr().cast(),
-                result.max_chars(),
+                name.as_mut_ptr().cast(),
+                name.max_chars(),
             )
         })?;
-        result.into_string()
+        name.into_string()
     }
 
-    pub fn time(&self) -> Result<DeviceTime> {
-        let mut full_secs = 0;
-        let mut frac_secs = 0.0;
+    pub fn clock_sources(&self) -> Result<Vec<String>> {
+        let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_time_now(
+            uhd_usrp_sys::uhd_usrp_get_clock_sources(
                 self.usrp.handle(),
                 self.mboard,
-                addr_of_mut!(full_secs),
-                addr_of_mut!(frac_secs),
+                vec.as_mut_ptr(),
             )
         })?;
-        Ok(DeviceTime::from_parts(full_secs as u64, frac_secs))
+        vec.to_vec()
     }
 
-    pub fn set_time(&self, time: DeviceTime) -> Result<()> {
+    pub fn dboard_eeprom(&self, unit: &str, slot: &str) -> Result<DaughterboardEeprom> {
+        let unit = CString::new(unit).unwrap();
+        let slot = CString::new(slot).unwrap();
+        let handle = OwnedHandle::<uhd_usrp_sys::uhd_dboard_eeprom_t>::new(
+            uhd_usrp_sys::uhd_dboard_eeprom_make,
+            uhd_usrp_sys::uhd_dboard_eeprom_free,
+        )?;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_now(
+            uhd_usrp_sys::uhd_usrp_get_dboard_eeprom(
                 self.usrp.handle(),
-                time.full_seconds() as i64,
-                time.fractional_seconds(),
+                handle.as_mut_ptr(),
+                unit.as_ptr(),
+                slot.as_ptr(),
                 self.mboard,
             )
         })?;
-        Ok(())
+        Ok(DaughterboardEeprom::from_handle(handle))
     }
 
-    pub fn set_time_next_pps(&mut self, time: DeviceTime) -> Result<()> {
+    pub fn eeprom(&self) -> Result<MotherboardEeprom> {
+        let handle = OwnedHandle::<uhd_usrp_sys::uhd_mboard_eeprom_t>::new(
+            uhd_usrp_sys::uhd_mboard_eeprom_make,
+            uhd_usrp_sys::uhd_mboard_eeprom_free,
+        )?;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_next_pps(
+            uhd_usrp_sys::uhd_usrp_get_mboard_eeprom(
                 self.usrp.handle(),
-                time.full_seconds() as i64,
-                time.fractional_seconds(),
+                handle.as_mut_ptr(),
                 self.mboard,
             )
         })?;
-        Ok(())
+        Ok(MotherboardEeprom::new(handle))
+    }
+
+    pub fn gpio_bank_names(&self) -> Result<Vec<String>> {
+        let mut vec = FfiStringVec::new()?;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_gpio_banks(self.usrp.handle(), self.mboard, vec.as_mut_ptr())
+        })?;
+        vec.to_vec()
+    }
+
+    pub fn gpio_bank(&self, name: &str) -> GpioBank {
+        GpioBank::new(self.usrp, self.mboard, name)
     }
 
     pub fn last_pps_time(&self) -> Result<DeviceTime> {
@@ -80,90 +100,6 @@ impl<'a> Motherboard<'a> {
         Ok(DeviceTime::from_parts(full_seconds as u64, frac_seconds))
     }
 
-    pub fn time_source(&self) -> Result<String> {
-        let mut name = FfiString::<16>::new();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_time_source(
-                self.usrp.handle(),
-                self.mboard,
-                name.as_mut_ptr().cast(),
-                name.max_chars(),
-            )
-        })?;
-        name.into_string()
-    }
-
-    pub fn set_time_source(&self, source: &str) -> Result<()> {
-        let source = CString::new(source).unwrap();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_source(self.usrp.handle(), source.as_ptr(), self.mboard)
-        })?;
-        Ok(())
-    }
-
-    pub fn time_sources(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_time_sources(
-                self.usrp.handle(),
-                self.mboard,
-                vec.as_mut_ptr(),
-            )
-        })?;
-        vec.to_vec()
-    }
-
-    pub fn clock_source(&self) -> Result<String> {
-        let mut name = FfiString::<16>::new();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_clock_source(
-                self.usrp.handle(),
-                self.mboard,
-                name.as_mut_ptr().cast(),
-                name.max_chars(),
-            )
-        })?;
-        name.into_string()
-    }
-
-    pub fn set_clock_source(&self, source: &str) -> Result<()> {
-        let source = CString::new(source).unwrap();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_clock_source(
-                self.usrp.handle(),
-                source.as_ptr(),
-                self.mboard,
-            )
-        })?;
-        Ok(())
-    }
-
-    pub fn clock_sources(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_clock_sources(
-                self.usrp.handle(),
-                self.mboard,
-                vec.as_mut_ptr(),
-            )
-        })?;
-        vec.to_vec()
-    }
-
-    pub fn set_time_source_out(&mut self, en: bool) -> Result<()> {
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_source_out(self.usrp.handle(), en, self.mboard)
-        })?;
-        Ok(())
-    }
-
-    pub fn set_clock_source_out(&mut self, en: bool) -> Result<()> {
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_clock_source_out(self.usrp.handle(), en, self.mboard)
-        })?;
-        Ok(())
-    }
-
     pub fn master_clock_rate(&self) -> Result<f64> {
         let mut result = 0.0;
         try_uhd!(unsafe {
@@ -176,11 +112,17 @@ impl<'a> Motherboard<'a> {
         Ok(result)
     }
 
-    pub fn set_master_clock_rate(&mut self, rate: f64) -> Result<()> {
+    pub fn name(&self) -> Result<String> {
+        let mut result = FfiString::<16>::new();
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_master_clock_rate(self.usrp.handle(), rate, self.mboard)
+            uhd_usrp_sys::uhd_usrp_get_mboard_name(
+                self.usrp.handle(),
+                self.mboard,
+                result.as_mut_ptr().cast(),
+                result.max_chars(),
+            )
         })?;
-        Ok(())
+        result.into_string()
     }
 
     pub fn sensor_names(&self) -> Result<Vec<String>> {
@@ -212,16 +154,108 @@ impl<'a> Motherboard<'a> {
         Ok(SensorValue::new(handle))
     }
 
-    pub fn gpio_bank_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+    pub fn set_clock_source(&self, source: &str) -> Result<()> {
+        let source = CString::new(source).unwrap();
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_gpio_banks(self.usrp.handle(), self.mboard, vec.as_mut_ptr())
+            uhd_usrp_sys::uhd_usrp_set_clock_source(
+                self.usrp.handle(),
+                source.as_ptr(),
+                self.mboard,
+            )
         })?;
-        vec.to_vec()
+        Ok(())
     }
 
-    pub fn gpio_bank(&self, name: &str) -> GpioBank {
-        GpioBank::new(self.usrp, self.mboard, name)
+    pub fn set_clock_source_out(&mut self, en: bool) -> Result<()> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_clock_source_out(self.usrp.handle(), en, self.mboard)
+        })?;
+        Ok(())
+    }
+
+    pub fn set_time(&self, time: DeviceTime) -> Result<()> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_time_now(
+                self.usrp.handle(),
+                time.full_seconds() as i64,
+                time.fractional_seconds(),
+                self.mboard,
+            )
+        })?;
+        Ok(())
+    }
+
+    pub fn set_time_next_pps(&mut self, time: DeviceTime) -> Result<()> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_time_next_pps(
+                self.usrp.handle(),
+                time.full_seconds() as i64,
+                time.fractional_seconds(),
+                self.mboard,
+            )
+        })?;
+        Ok(())
+    }
+
+    pub fn set_time_source(&self, source: &str) -> Result<()> {
+        let source = CString::new(source).unwrap();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_time_source(self.usrp.handle(), source.as_ptr(), self.mboard)
+        })?;
+        Ok(())
+    }
+
+    pub fn set_time_source_out(&mut self, en: bool) -> Result<()> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_time_source_out(self.usrp.handle(), en, self.mboard)
+        })?;
+        Ok(())
+    }
+
+    pub fn set_user_register(&self, addr: u8, data: u32) -> Result<()> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_user_register(self.usrp.handle(), addr, data, self.mboard)
+        })?;
+        Ok(())
+    }
+
+    pub fn time(&self) -> Result<DeviceTime> {
+        let mut full_secs = 0;
+        let mut frac_secs = 0.0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_time_now(
+                self.usrp.handle(),
+                self.mboard,
+                addr_of_mut!(full_secs),
+                addr_of_mut!(frac_secs),
+            )
+        })?;
+        Ok(DeviceTime::from_parts(full_secs as u64, frac_secs))
+    }
+
+    pub fn time_source(&self) -> Result<String> {
+        let mut name = FfiString::<16>::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_time_source(
+                self.usrp.handle(),
+                self.mboard,
+                name.as_mut_ptr().cast(),
+                name.max_chars(),
+            )
+        })?;
+        name.into_string()
+    }
+
+    pub fn time_sources(&self) -> Result<Vec<String>> {
+        let mut vec = FfiStringVec::new()?;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_time_sources(
+                self.usrp.handle(),
+                self.mboard,
+                vec.as_mut_ptr(),
+            )
+        })?;
+        vec.to_vec()
     }
 }
 
@@ -268,5 +302,119 @@ impl<'a> GpioBank<'a> {
             )
         })?;
         Ok(())
+    }
+}
+
+pub struct MotherboardEeprom {
+    handle: OwnedHandle<uhd_usrp_sys::uhd_mboard_eeprom_t>,
+}
+
+impl MotherboardEeprom {
+    pub(crate) fn new(handle: OwnedHandle<uhd_usrp_sys::uhd_mboard_eeprom_t>) -> Self {
+        Self { handle }
+    }
+
+    pub fn value(&self, key: &str) -> Result<String> {
+        let key = CString::new(key).unwrap();
+        let mut value = FfiString::<32>::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_mboard_eeprom_get_value(
+                self.handle.as_mut_ptr(),
+                key.as_ptr(),
+                value.as_mut_ptr(),
+                value.max_chars(),
+            )
+        })?;
+        value.into_string()
+    }
+
+    pub fn set_value(&self, key: &str, value: &str) -> Result<()> {
+        let key = CString::new(key).unwrap();
+        let value = CString::new(value).unwrap();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_mboard_eeprom_set_value(
+                self.handle.as_mut_ptr(),
+                key.as_ptr(),
+                value.as_ptr(),
+            )
+        })?;
+        Ok(())
+    }
+}
+
+pub struct DaughterboardEeprom {
+    handle: OwnedHandle<uhd_usrp_sys::uhd_dboard_eeprom_t>,
+}
+
+impl DaughterboardEeprom {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            handle: OwnedHandle::new(
+                uhd_usrp_sys::uhd_dboard_eeprom_make,
+                uhd_usrp_sys::uhd_dboard_eeprom_free,
+            )?,
+        })
+    }
+
+    pub(crate) fn from_handle(handle: OwnedHandle<uhd_usrp_sys::uhd_dboard_eeprom_t>) -> Self {
+        Self { handle }
+    }
+
+    pub fn id(&self) -> Result<String> {
+        let mut id = FfiString::<16>::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_get_id(
+                self.handle.as_mut_ptr(),
+                id.as_mut_ptr(),
+                id.max_chars(),
+            )
+        })?;
+        id.into_string()
+    }
+
+    pub fn set_id(&self, id: &str) -> Result<()> {
+        let id = CString::new(id).unwrap();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_set_id(self.handle.as_mut_ptr(), id.as_ptr())
+        })?;
+        Ok(())
+    }
+
+    pub fn serial_number(&self) -> Result<String> {
+        let mut id = FfiString::<16>::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_get_serial(
+                self.handle.as_mut_ptr(),
+                id.as_mut_ptr(),
+                id.max_chars(),
+            )
+        })?;
+        id.into_string()
+    }
+
+    pub fn set_serial_number(&self, serial: &str) -> Result<()> {
+        let serial = CString::new(serial).unwrap();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_set_serial(self.handle.as_mut_ptr(), serial.as_ptr())
+        })?;
+        Ok(())
+    }
+
+    pub fn revision(&self) -> Result<i32> {
+        let mut value = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_get_revision(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(value),
+            )
+        })?;
+        Ok(value)
+    }
+
+    pub fn set_revision(&self, value: i32) -> Result<i32> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_set_revision(self.handle.as_mut_ptr(), value)
+        })?;
+        Ok(value)
     }
 }

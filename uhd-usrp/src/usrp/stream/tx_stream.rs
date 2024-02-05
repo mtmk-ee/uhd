@@ -59,12 +59,12 @@ impl<T: Sample> TxStream<T> {
         })
     }
 
-    pub fn max_samples_per_buffer(&self) -> usize {
-        self.samples_per_buffer
-    }
-
     pub fn channels(&self) -> usize {
         self.channels
+    }
+
+    pub fn max_samples_per_buffer(&self) -> usize {
+        self.samples_per_buffer
     }
 
     pub fn send(

@@ -51,6 +51,17 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         names.to_vec()
     }
 
+    pub fn bandwidth(&self) -> Result<f64> {
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_bandwidth,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_bandwidth,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+            .and_then(|_| Ok(unsafe { result.assume_init() }))
+    }
+
     pub fn bandwidth_ranges(&self) -> Result<MetaRange> {
         let handle = OwnedHandle::<uhd_usrp_sys::uhd_meta_range_t>::new(
             uhd_usrp_sys::uhd_meta_range_make,
@@ -65,6 +76,17 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         MetaRange::from_handle(handle)
     }
 
+    pub fn center_freq(&self) -> Result<f64> {
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_freq,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_freq,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+            .and_then(|_| Ok(unsafe { result.assume_init() }))
+    }
+
     pub fn center_freq_ranges(&self) -> Result<MetaRange> {
         let handle = OwnedHandle::<uhd_usrp_sys::uhd_meta_range_t>::new(
             uhd_usrp_sys::uhd_meta_range_make,
@@ -77,6 +99,39 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
         MetaRange::from_handle(handle)
+    }
+
+    pub fn frontend_freq_range(&self) -> Result<MetaRange> {
+        let handle = OwnedHandle::<uhd_usrp_sys::uhd_meta_range_t>::new(
+            uhd_usrp_sys::uhd_meta_range_make,
+            uhd_usrp_sys::uhd_meta_range_free,
+        )?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_fe_rx_freq_range,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_fe_tx_freq_range,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        MetaRange::from_handle(handle)
+    }
+
+    pub fn gain(&self, name: Option<&str>) -> Result<f64> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_gain,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_gain,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                self.channel,
+                name.as_ptr(),
+                result.as_mut_ptr(),
+            )
+        })
+        .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
     pub fn gain_ranges(&self) -> Result<MetaRange> {
@@ -99,6 +154,191 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             )
         })?;
         MetaRange::from_handle(handle)
+    }
+
+    pub fn hardware_info(&self) -> Result<HardwareInfo> {
+        match D {
+            RX_DIR => {
+                let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_rx_info_t> = MaybeUninit::uninit();
+                try_uhd!(unsafe {
+                    uhd_usrp_sys::uhd_usrp_get_rx_info(
+                        self.usrp.handle(),
+                        self.channel,
+                        info.as_mut_ptr(),
+                    )
+                })?;
+                HardwareInfo::from_rx_raw(unsafe { &info.assume_init() })
+            }
+            TX_DIR => {
+                let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_tx_info_t> = MaybeUninit::uninit();
+                try_uhd!(unsafe {
+                    uhd_usrp_sys::uhd_usrp_get_tx_info(
+                        self.usrp.handle(),
+                        self.channel,
+                        info.as_mut_ptr(),
+                    )
+                })?;
+                HardwareInfo::from_tx_raw(unsafe { &info.assume_init() })
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn lo_export_enabled(&self, name: Option<&str>) -> Result<bool> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut result = false;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_export_enabled,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_export_enabled,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                name.as_ptr(),
+                self.channel,
+                addr_of_mut!(result),
+            )
+        })?;
+        Ok(result)
+    }
+
+    pub fn lo_freq(&self, name: Option<&str>) -> Result<f64> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_freq,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_freq,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                name.as_ptr(),
+                self.channel,
+                result.as_mut_ptr(),
+            )
+        })
+        .and_then(|_| Ok(unsafe { result.assume_init() }))
+    }
+
+    pub fn lo_names(&self) -> Result<Vec<String>> {
+        let mut vec = FfiStringVec::new()?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
+        vec.to_vec()
+    }
+
+    pub fn lo_source(&self, name: Option<&str>) -> Result<String> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut buf = FfiString::<32>::new();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_source,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_source,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                name.as_ptr(),
+                self.channel,
+                buf.as_mut_ptr(),
+                buf.max_chars(),
+            )
+        })?;
+        buf.into_string()
+    }
+
+    pub fn lo_sources(&self, name: Option<&str>) -> Result<Vec<String>> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut vec = FfiStringVec::new()?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_sources,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_sources,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                name.as_ptr(),
+                self.channel,
+                vec.as_mut_ptr(),
+            )
+        })?;
+        vec.to_vec()
+    }
+
+    pub fn normalized_gain(&self) -> Result<f64> {
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_normalized_rx_gain,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_normalized_tx_gain,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+            .and_then(|_| Ok(unsafe { result.assume_init() }))
+    }
+
+    pub fn sample_rate(&self) -> Result<f64> {
+        let mut result = std::mem::MaybeUninit::uninit();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_rate,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rate,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+            .and_then(|_| Ok(unsafe { result.assume_init() }))
+    }
+
+    pub fn sample_rates(&self) -> Result<MetaRange> {
+        let handle = OwnedHandle::<uhd_usrp_sys::uhd_meta_range_t>::new(
+            uhd_usrp_sys::uhd_meta_range_make,
+            uhd_usrp_sys::uhd_meta_range_free,
+        )?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_rates,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rates,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        MetaRange::from_handle(handle)
+    }
+
+    pub fn sensor_names(&self) -> Result<Vec<String>> {
+        let mut vec = FfiStringVec::new()?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_sensor_names,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor_names,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
+        vec.to_vec()
+    }
+
+    pub fn sensor_value(&self, name: &str) -> Result<SensorValue> {
+        let name = CString::new(name).unwrap();
+        let handle = OwnedHandle::<uhd_usrp_sys::uhd_sensor_value_t>::new(
+            uhd_usrp_sys::uhd_sensor_value_make,
+            uhd_usrp_sys::uhd_sensor_value_free,
+        )?;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_sensor,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                name.as_ptr(),
+                self.channel,
+                handle.as_mut_mut_ptr(),
+            )
+        })?;
+        Ok(SensorValue::new(handle))
     }
 
     pub fn subdev_name(&self) -> Result<String> {
@@ -154,232 +394,6 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         }
         Ok(result)
     }
-
-    pub fn sample_rate(&self) -> Result<f64> {
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_rate,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rate,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
-            .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn sample_rates(&self) -> Result<MetaRange> {
-        let handle = OwnedHandle::<uhd_usrp_sys::uhd_meta_range_t>::new(
-            uhd_usrp_sys::uhd_meta_range_make,
-            uhd_usrp_sys::uhd_meta_range_free,
-        )?;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_rates,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rates,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
-        MetaRange::from_handle(handle)
-    }
-
-    pub fn bandwidth(&self) -> Result<f64> {
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_bandwidth,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_bandwidth,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
-            .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn center_freq(&self) -> Result<f64> {
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_freq,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_freq,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
-            .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn hardware_info(&self) -> Result<HardwareInfo> {
-        match D {
-            RX_DIR => {
-                let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_rx_info_t> = MaybeUninit::uninit();
-                try_uhd!(unsafe {
-                    uhd_usrp_sys::uhd_usrp_get_rx_info(
-                        self.usrp.handle(),
-                        self.channel,
-                        info.as_mut_ptr(),
-                    )
-                })?;
-                HardwareInfo::from_rx_raw(unsafe { &info.assume_init() })
-            }
-            TX_DIR => {
-                let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_tx_info_t> = MaybeUninit::uninit();
-                try_uhd!(unsafe {
-                    uhd_usrp_sys::uhd_usrp_get_tx_info(
-                        self.usrp.handle(),
-                        self.channel,
-                        info.as_mut_ptr(),
-                    )
-                })?;
-                HardwareInfo::from_tx_raw(unsafe { &info.assume_init() })
-            }
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn lo_freq(&self, name: Option<&str>) -> Result<f64> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_freq,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_freq,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                name.as_ptr(),
-                self.channel,
-                result.as_mut_ptr(),
-            )
-        })
-        .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn lo_export_enabled(&self, name: Option<&str>) -> Result<bool> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut result = false;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_export_enabled,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_export_enabled,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                name.as_ptr(),
-                self.channel,
-                addr_of_mut!(result),
-            )
-        })?;
-        Ok(result)
-    }
-
-    pub fn lo_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
-        vec.to_vec()
-    }
-
-    pub fn lo_source(&self, name: Option<&str>) -> Result<String> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut buf = FfiString::<32>::new();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_source,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_source,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                name.as_ptr(),
-                self.channel,
-                buf.as_mut_ptr(),
-                buf.max_chars(),
-            )
-        })?;
-        buf.into_string()
-    }
-
-    pub fn lo_sources(&self, name: Option<&str>) -> Result<Vec<String>> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut vec = FfiStringVec::new()?;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_sources,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_sources,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                name.as_ptr(),
-                self.channel,
-                vec.as_mut_ptr(),
-            )
-        })?;
-        vec.to_vec()
-    }
-
-    pub fn gain(&self, name: Option<&str>) -> Result<f64> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_gain,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_gain,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                self.channel,
-                name.as_ptr(),
-                result.as_mut_ptr(),
-            )
-        })
-        .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn normalized_gain(&self) -> Result<f64> {
-        let mut result = std::mem::MaybeUninit::uninit();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_normalized_rx_gain,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_normalized_tx_gain,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
-            .and_then(|_| Ok(unsafe { result.assume_init() }))
-    }
-
-    pub fn sensor_value(&self, name: &str) -> Result<SensorValue> {
-        let name = CString::new(name).unwrap();
-        let handle = OwnedHandle::<uhd_usrp_sys::uhd_sensor_value_t>::new(
-            uhd_usrp_sys::uhd_sensor_value_make,
-            uhd_usrp_sys::uhd_sensor_value_free,
-        )?;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_sensor,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                name.as_ptr(),
-                self.channel,
-                handle.as_mut_mut_ptr(),
-            )
-        })?;
-        Ok(SensorValue::new(handle))
-    }
-
-    pub fn sensor_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_sensor_names,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor_names,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
-        vec.to_vec()
-    }
 }
 
 impl<'a> ChannelConfiguration<'a, TX_DIR> {
@@ -400,57 +414,6 @@ pub struct ChannelConfigurationBuilder<'usrp, const D: usize> {
 }
 
 impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
-    pub fn set_sample_rate(self, rate: f64) -> Result<Self> {
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_rate,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_rate,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), rate, self.channel) })?;
-        Ok(self)
-    }
-
-    pub fn set_gain(self, name: Option<&str>, gain: f64) -> Result<Self> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_gain,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_gain,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel, name.as_ptr(),) })?;
-        Ok(self)
-    }
-
-    pub fn set_normalized_gain(self, gain: f64) -> Result<Self> {
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_set_normalized_rx_gain,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_set_normalized_tx_gain,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel) })?;
-        Ok(self)
-    }
-
-    pub fn set_lo_freq(self, name: Option<&str>, freq: f64) -> Result<Self> {
-        let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut result = 0.0;
-        let f = match D {
-            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_lo_freq,
-            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_lo_freq,
-            _ => unreachable!(),
-        };
-        try_uhd!(unsafe {
-            f(
-                self.usrp.handle(),
-                freq,
-                name.as_ptr(),
-                self.channel,
-                addr_of_mut!(result),
-            )
-        })?;
-        Ok(self)
-    }
-
     pub fn set_antenna(self, name: &str) -> Result<Self> {
         let name = CString::new(name).unwrap();
         let f = match D {
@@ -479,6 +442,57 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
                 .rf_freq_unset()
                 .dsp_freq_unset(),
         )
+    }
+
+    pub fn set_gain(self, name: Option<&str>, gain: f64) -> Result<Self> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_gain,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_gain,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel, name.as_ptr(),) })?;
+        Ok(self)
+    }
+
+    pub fn set_lo_freq(self, name: Option<&str>, freq: f64) -> Result<Self> {
+        let name = CString::new(name.unwrap_or("")).unwrap();
+        let mut result = 0.0;
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_lo_freq,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_lo_freq,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe {
+            f(
+                self.usrp.handle(),
+                freq,
+                name.as_ptr(),
+                self.channel,
+                addr_of_mut!(result),
+            )
+        })?;
+        Ok(self)
+    }
+
+    pub fn set_normalized_gain(self, gain: f64) -> Result<Self> {
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_set_normalized_rx_gain,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_set_normalized_tx_gain,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel) })?;
+        Ok(self)
+    }
+
+    pub fn set_sample_rate(self, rate: f64) -> Result<Self> {
+        let f = match D {
+            RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_rate,
+            TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_rate,
+            _ => unreachable!(),
+        };
+        try_uhd!(unsafe { f(self.usrp.handle(), rate, self.channel) })?;
+        Ok(self)
     }
 
     pub fn tune(self, req: &TuneRequest) -> Result<Self> {
@@ -512,6 +526,13 @@ impl<'a> ChannelConfigurationBuilder<'a, RX_DIR> {
         Self { usrp, channel }
     }
 
+    pub fn set_agc_enabled(self, en: bool) -> Result<Self> {
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_rx_agc(self.usrp.handle(), en, self.channel)
+        })?;
+        Ok(self)
+    }
+
     pub fn set_dc_offset_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_rx_dc_offset_enabled(self.usrp.handle(), en, self.channel)
@@ -522,13 +543,6 @@ impl<'a> ChannelConfigurationBuilder<'a, RX_DIR> {
     pub fn set_iq_balance_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_rx_iq_balance_enabled(self.usrp.handle(), en, self.channel)
-        })?;
-        Ok(self)
-    }
-
-    pub fn set_agc_enabled(self, en: bool) -> Result<Self> {
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_rx_agc(self.usrp.handle(), en, self.channel)
         })?;
         Ok(self)
     }

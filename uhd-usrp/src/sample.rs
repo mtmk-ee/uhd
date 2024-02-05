@@ -3,6 +3,7 @@ use num::Complex;
 pub trait Sample {
     fn name() -> &'static str;
 }
+
 impl Sample for Complex<f32> {
     fn name() -> &'static str {
         "fc32"

@@ -3,7 +3,10 @@ use std::{ffi::CString, marker::PhantomData, ptr::addr_of_mut};
 use crate::{error::try_uhd, stream::StreamArgs, DeviceTime, Result, Sample};
 
 use super::{
-    channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR}, mboard::Motherboard, stream::{RxStream, TxStream}, DeviceArgs
+    channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
+    mboard::Motherboard,
+    stream::{RxStream, TxStream},
+    DeviceArgs,
 };
 
 pub struct Usrp {
@@ -42,42 +45,12 @@ impl Usrp {
         ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
     }
 
-    pub fn set_rx_config<'a>(
-        &'a mut self,
-        channel: usize,
-    ) -> ChannelConfigurationBuilder<'a, { RX_DIR }> {
-        ChannelConfigurationBuilder::<'a, RX_DIR>::new(self, channel)
-    }
-
-    pub fn tx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
-        ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
-    }
-
-    pub fn set_tx_config<'a>(
-        &'a mut self,
-        channel: usize,
-    ) -> ChannelConfigurationBuilder<'a, { TX_DIR }> {
-        ChannelConfigurationBuilder::<'a, TX_DIR>::new(self, channel)
-    }
-
     pub fn rx_channels(&self) -> Result<usize> {
         let mut channels = 0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_rx_num_channels(self.handle, addr_of_mut!(channels))
         })?;
         Ok(channels)
-    }
-
-    pub fn tx_channels(&self) -> Result<usize> {
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(self.handle, addr_of_mut!(channels))
-        })?;
-        Ok(channels)
-    }
-
-    pub fn tx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<TxStream<T>> {
-        TxStream::open(self, args)
     }
 
     pub fn rx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<RxStream<T>> {
@@ -93,6 +66,36 @@ impl Usrp {
             )
         })?;
         Ok(())
+    }
+
+    pub fn set_rx_config<'a>(
+        &'a mut self,
+        channel: usize,
+    ) -> ChannelConfigurationBuilder<'a, { RX_DIR }> {
+        ChannelConfigurationBuilder::<'a, RX_DIR>::new(self, channel)
+    }
+
+    pub fn set_tx_config<'a>(
+        &'a mut self,
+        channel: usize,
+    ) -> ChannelConfigurationBuilder<'a, { TX_DIR }> {
+        ChannelConfigurationBuilder::<'a, TX_DIR>::new(self, channel)
+    }
+
+    pub fn tx_channels(&self) -> Result<usize> {
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(self.handle, addr_of_mut!(channels))
+        })?;
+        Ok(channels)
+    }
+
+    pub fn tx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
+        ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
+    }
+
+    pub fn tx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<TxStream<T>> {
+        TxStream::open(self, args)
     }
 }
 

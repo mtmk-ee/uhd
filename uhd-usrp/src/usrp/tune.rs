@@ -1,5 +1,6 @@
 #![allow(unused)]
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 #[repr(u32)]
 pub enum TuneRequestPolicy {
     None = uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_NONE,
@@ -37,15 +38,28 @@ impl TuneRequest {
         self
     }
 
-    pub fn rf_freq_auto(mut self) -> Self {
-        self.inner.rf_freq_policy =
+    pub fn dsp_freq_auto(mut self) -> Self {
+        self.inner.dsp_freq_policy =
             uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_AUTO;
         self
     }
 
-    pub fn rf_freq_unset(mut self) -> Self {
-        self.inner.rf_freq_policy =
+    pub fn dsp_freq_manual(mut self, freq: f64) -> Self {
+        self.inner.dsp_freq = freq;
+        self.inner.dsp_freq_policy =
+            uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_MANUAL;
+        self
+    }
+
+    pub fn dsp_freq_unset(mut self) -> Self {
+        self.inner.dsp_freq_policy =
             uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_NONE;
+        self
+    }
+
+    pub fn rf_freq_auto(mut self) -> Self {
+        self.inner.rf_freq_policy =
+            uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_AUTO;
         self
     }
 
@@ -56,22 +70,9 @@ impl TuneRequest {
         self
     }
 
-    pub fn dsp_freq_auto(mut self) -> Self {
-        self.inner.dsp_freq_policy =
-            uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_AUTO;
-        self
-    }
-
-    pub fn dsp_freq_unset(mut self) -> Self {
-        self.inner.dsp_freq_policy =
+    pub fn rf_freq_unset(mut self) -> Self {
+        self.inner.rf_freq_policy =
             uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_NONE;
-        self
-    }
-
-    pub fn dsp_freq_manual(mut self, freq: f64) -> Self {
-        self.inner.dsp_freq = freq;
-        self.inner.dsp_freq_policy =
-            uhd_usrp_sys::uhd_tune_request_policy_t::UHD_TUNE_REQUEST_POLICY_MANUAL;
         self
     }
 }
@@ -102,15 +103,15 @@ impl TuneResult {
         &mut self.inner
     }
 
-    pub fn clipped_rf_freq(&self) -> f64 {
-        self.inner.clipped_rf_freq
+    pub fn actual_dsp_freq(&self) -> f64 {
+        self.inner.actual_rf_freq
     }
 
     pub fn actual_rf_freq(&self) -> f64 {
         self.inner.actual_rf_freq
     }
-
-    pub fn actual_dsp_freq(&self) -> f64 {
-        self.inner.actual_rf_freq
+    
+    pub fn clipped_rf_freq(&self) -> f64 {
+        self.inner.clipped_rf_freq
     }
 }

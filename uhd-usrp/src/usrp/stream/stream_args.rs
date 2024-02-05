@@ -2,7 +2,6 @@ use std::{collections::HashMap, ffi::CString, marker::PhantomData};
 
 use crate::Sample;
 
-
 #[derive(Clone, Debug)]
 pub struct StreamArgs<T: Sample> {
     otw_format: Option<OtwFormat>,
@@ -40,8 +39,8 @@ impl<T: Sample> StreamArgs<T> {
         }
     }
 
-    pub fn otw_format(mut self, format: OtwFormat) -> Self {
-        self.otw_format = Some(format);
+    pub fn channels(mut self, channels: &[usize]) -> Self {
+        self.channels = Some(channels.to_vec());
         self
     }
 
@@ -50,14 +49,13 @@ impl<T: Sample> StreamArgs<T> {
         self
     }
 
-    pub fn peak(mut self, amplitude: f32) -> Self {
-        self.args.insert("peak", amplitude.to_string());
+    pub fn otw_format(mut self, format: OtwFormat) -> Self {
+        self.otw_format = Some(format);
         self
     }
 
-    pub fn underflow_policy(mut self, policy: UnderflowPolicy) -> Self {
-        self.args
-            .insert("underflow_policy", policy.as_str().to_owned());
+    pub fn peak(mut self, amplitude: f32) -> Self {
+        self.args.insert("peak", amplitude.to_string());
         self
     }
 
@@ -66,8 +64,9 @@ impl<T: Sample> StreamArgs<T> {
         self
     }
 
-    pub fn channels(mut self, channels: &[usize]) -> Self {
-        self.channels = Some(channels.to_vec());
+    pub fn underflow_policy(mut self, policy: UnderflowPolicy) -> Self {
+        self.args
+            .insert("underflow_policy", policy.as_str().to_owned());
         self
     }
 }

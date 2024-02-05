@@ -66,22 +66,6 @@ impl MetaRange {
         })
     }
 
-    pub fn start(&self) -> f64 {
-        self.start
-    }
-
-    pub fn stop(&self) -> f64 {
-        self.stop
-    }
-
-    pub fn step(&self) -> f64 {
-        self.step
-    }
-
-    pub fn ranges(&self) -> &[Range] {
-        &self.ranges
-    }
-
     pub fn clip(&self, value: f64, clip_step: bool) -> Result<f64> {
         let mut result = 0.0;
         try_uhd!(unsafe {
@@ -93,6 +77,22 @@ impl MetaRange {
             )
         })?;
         Ok(result)
+    }
+
+    pub fn ranges(&self) -> &[Range] {
+        &self.ranges
+    }
+
+    pub fn start(&self) -> f64 {
+        self.start
+    }
+
+    pub fn step(&self) -> f64 {
+        self.step
+    }
+
+    pub fn stop(&self) -> f64 {
+        self.stop
     }
 }
 
@@ -148,8 +148,16 @@ impl HardwareInfo {
         self.mboard_serial
     }
 
+    pub fn rx_antenna(&self) -> &str {
+        self.dboard_antenna
+    }
+
     pub fn rx_id(&self) -> &str {
         self.dboard_id
+    }
+
+    pub fn rx_serial(&self) -> &str {
+        self.dboard_serial
     }
 
     pub fn rx_subdev_name(&self) -> &str {
@@ -158,14 +166,6 @@ impl HardwareInfo {
 
     pub fn rx_subdev_spec(&self) -> &str {
         self.dboard_subdev_spec
-    }
-
-    pub fn rx_serial(&self) -> &str {
-        self.dboard_serial
-    }
-
-    pub fn rx_antenna(&self) -> &str {
-        self.dboard_antenna
     }
 }
 

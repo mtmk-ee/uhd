@@ -88,8 +88,6 @@ macro_rules! try_uhd {
 }
 pub(crate) use try_uhd;
 
-
-
 pub fn last_error_message() -> Result<String> {
     let mut message: [u8; 128] = [0; 128];
     try_uhd!(unsafe {

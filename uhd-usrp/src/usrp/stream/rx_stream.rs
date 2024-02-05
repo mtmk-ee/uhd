@@ -65,12 +65,12 @@ impl<T: Sample> RxStream<T> {
         })
     }
 
-    pub fn max_samples_per_buffer(&self) -> usize {
-        self.samples_per_buffer
-    }
-
     pub fn channels(&self) -> usize {
         self.channels
+    }
+
+    pub fn max_samples_per_buffer(&self) -> usize {
+        self.samples_per_buffer
     }
 
     pub fn reader<'a>(&'a mut self) -> RxStreamReaderOptions<'a, T> {
@@ -97,18 +97,13 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
         }
     }
 
-    pub fn limit(mut self, n_samples: usize, and_done: bool) -> Self {
-        self.limit = Some((n_samples, and_done));
-        self
-    }
-
     pub fn at_time(mut self, delay: DeviceTime) -> Self {
         self.at_time = Some(delay);
         self
     }
 
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = Some(timeout);
+    pub fn limit(mut self, n_samples: usize, and_done: bool) -> Self {
+        self.limit = Some((n_samples, and_done));
         self
     }
 
@@ -146,6 +141,11 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
             timeout: self.timeout,
             one_packet: self.one_packet,
         })
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
     }
 }
 
