@@ -19,7 +19,7 @@ impl<'a> Motherboard<'a> {
         let mut name = FfiString::<16>::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_clock_source(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 name.as_mut_ptr().cast(),
                 name.max_chars(),
@@ -32,7 +32,7 @@ impl<'a> Motherboard<'a> {
         let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_clock_sources(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 vec.as_mut_ptr(),
             )
@@ -49,7 +49,7 @@ impl<'a> Motherboard<'a> {
         )?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_dboard_eeprom(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 handle.as_mut_ptr(),
                 unit.as_ptr(),
                 slot.as_ptr(),
@@ -66,7 +66,7 @@ impl<'a> Motherboard<'a> {
         )?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_mboard_eeprom(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 handle.as_mut_ptr(),
                 self.mboard,
             )
@@ -77,7 +77,7 @@ impl<'a> Motherboard<'a> {
     pub fn gpio_bank_names(&self) -> Result<Vec<String>> {
         let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_gpio_banks(self.usrp.handle(), self.mboard, vec.as_mut_ptr())
+            uhd_usrp_sys::uhd_usrp_get_gpio_banks(self.usrp.handle().as_mut_ptr(), self.mboard, vec.as_mut_ptr())
         })?;
         vec.to_vec()
     }
@@ -91,7 +91,7 @@ impl<'a> Motherboard<'a> {
         let mut frac_seconds: f64 = 0.0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_time_last_pps(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 addr_of_mut!(full_seconds),
                 addr_of_mut!(frac_seconds),
@@ -104,7 +104,7 @@ impl<'a> Motherboard<'a> {
         let mut result = 0.0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_master_clock_rate(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 addr_of_mut!(result),
             )
@@ -116,7 +116,7 @@ impl<'a> Motherboard<'a> {
         let mut result = FfiString::<16>::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_mboard_name(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 result.as_mut_ptr().cast(),
                 result.max_chars(),
@@ -129,7 +129,7 @@ impl<'a> Motherboard<'a> {
         let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_mboard_sensor_names(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 vec.as_mut_ptr(),
             )
@@ -145,7 +145,7 @@ impl<'a> Motherboard<'a> {
         )?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_mboard_sensor(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.mboard,
                 handle.as_mut_mut_ptr(),
@@ -158,7 +158,7 @@ impl<'a> Motherboard<'a> {
         let source = CString::new(source).unwrap();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_clock_source(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 source.as_ptr(),
                 self.mboard,
             )
@@ -168,7 +168,7 @@ impl<'a> Motherboard<'a> {
 
     pub fn set_clock_source_out(&mut self, en: bool) -> Result<()> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_clock_source_out(self.usrp.handle(), en, self.mboard)
+            uhd_usrp_sys::uhd_usrp_set_clock_source_out(self.usrp.handle().as_mut_ptr(), en, self.mboard)
         })?;
         Ok(())
     }
@@ -176,7 +176,7 @@ impl<'a> Motherboard<'a> {
     pub fn set_time(&self, time: DeviceTime) -> Result<()> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_time_now(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 time.full_seconds() as i64,
                 time.fractional_seconds(),
                 self.mboard,
@@ -188,7 +188,7 @@ impl<'a> Motherboard<'a> {
     pub fn set_time_next_pps(&mut self, time: DeviceTime) -> Result<()> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_time_next_pps(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 time.full_seconds() as i64,
                 time.fractional_seconds(),
                 self.mboard,
@@ -200,21 +200,21 @@ impl<'a> Motherboard<'a> {
     pub fn set_time_source(&self, source: &str) -> Result<()> {
         let source = CString::new(source).unwrap();
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_source(self.usrp.handle(), source.as_ptr(), self.mboard)
+            uhd_usrp_sys::uhd_usrp_set_time_source(self.usrp.handle().as_mut_ptr(), source.as_ptr(), self.mboard)
         })?;
         Ok(())
     }
 
     pub fn set_time_source_out(&mut self, en: bool) -> Result<()> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_time_source_out(self.usrp.handle(), en, self.mboard)
+            uhd_usrp_sys::uhd_usrp_set_time_source_out(self.usrp.handle().as_mut_ptr(), en, self.mboard)
         })?;
         Ok(())
     }
 
     pub fn set_user_register(&self, addr: u8, data: u32) -> Result<()> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_user_register(self.usrp.handle(), addr, data, self.mboard)
+            uhd_usrp_sys::uhd_usrp_set_user_register(self.usrp.handle().as_mut_ptr(), addr, data, self.mboard)
         })?;
         Ok(())
     }
@@ -224,7 +224,7 @@ impl<'a> Motherboard<'a> {
         let mut frac_secs = 0.0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_time_now(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 addr_of_mut!(full_secs),
                 addr_of_mut!(frac_secs),
@@ -237,7 +237,7 @@ impl<'a> Motherboard<'a> {
         let mut name = FfiString::<16>::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_time_source(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 name.as_mut_ptr().cast(),
                 name.max_chars(),
@@ -250,7 +250,7 @@ impl<'a> Motherboard<'a> {
         let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_time_sources(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.mboard,
                 vec.as_mut_ptr(),
             )
@@ -279,7 +279,7 @@ impl<'a> GpioBank<'a> {
         let mut result = 0;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_gpio_attr(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.bank.as_ptr(),
                 name.as_ptr(),
                 self.mboard,
@@ -293,7 +293,7 @@ impl<'a> GpioBank<'a> {
         let name = CString::new(name).unwrap();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_gpio_attr(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.bank.as_ptr(),
                 name.as_ptr(),
                 value,

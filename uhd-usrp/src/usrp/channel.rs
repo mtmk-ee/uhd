@@ -31,7 +31,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.channel,
                 name.as_mut_ptr().cast(),
                 name.max_chars(),
@@ -47,7 +47,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_antennas,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, names.as_mut_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, names.as_mut_ptr(),) })?;
         names.to_vec()
     }
 
@@ -58,7 +58,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_bandwidth,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, result.as_mut_ptr(),) })
             .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
@@ -72,7 +72,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_bandwidth_range,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, handle.as_mut_ptr(),) })?;
         MetaRange::from_handle(handle)
     }
 
@@ -83,7 +83,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_freq,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, result.as_mut_ptr(),) })
             .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
@@ -97,7 +97,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_freq_range,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, handle.as_mut_ptr(),) })?;
         MetaRange::from_handle(handle)
     }
 
@@ -111,7 +111,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_fe_tx_freq_range,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, handle.as_mut_ptr(),) })?;
         MetaRange::from_handle(handle)
     }
 
@@ -125,7 +125,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.channel,
                 name.as_ptr(),
                 result.as_mut_ptr(),
@@ -147,7 +147,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_mut_ptr().cast(),
                 self.channel,
                 handle.as_mut_ptr(),
@@ -162,7 +162,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_rx_info_t> = MaybeUninit::uninit();
                 try_uhd!(unsafe {
                     uhd_usrp_sys::uhd_usrp_get_rx_info(
-                        self.usrp.handle(),
+                        self.usrp.handle().as_mut_ptr(),
                         self.channel,
                         info.as_mut_ptr(),
                     )
@@ -173,7 +173,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_tx_info_t> = MaybeUninit::uninit();
                 try_uhd!(unsafe {
                     uhd_usrp_sys::uhd_usrp_get_tx_info(
-                        self.usrp.handle(),
+                        self.usrp.handle().as_mut_ptr(),
                         self.channel,
                         info.as_mut_ptr(),
                     )
@@ -194,7 +194,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.channel,
                 addr_of_mut!(result),
@@ -213,7 +213,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.channel,
                 result.as_mut_ptr(),
@@ -229,7 +229,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, vec.as_mut_ptr()) })?;
         vec.to_vec()
     }
 
@@ -243,7 +243,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.channel,
                 buf.as_mut_ptr(),
@@ -263,7 +263,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.channel,
                 vec.as_mut_ptr(),
@@ -279,7 +279,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_normalized_tx_gain,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, result.as_mut_ptr(),) })
             .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
@@ -290,7 +290,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rate,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, result.as_mut_ptr(),) })
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, result.as_mut_ptr(),) })
             .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
@@ -304,7 +304,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_rates,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, handle.as_mut_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, handle.as_mut_ptr(),) })?;
         MetaRange::from_handle(handle)
     }
 
@@ -315,7 +315,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor_names,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), self.channel, vec.as_mut_ptr()) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), self.channel, vec.as_mut_ptr()) })?;
         vec.to_vec()
     }
 
@@ -332,7 +332,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 name.as_ptr(),
                 self.channel,
                 handle.as_mut_mut_ptr(),
@@ -350,7 +350,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 self.channel,
                 name.as_mut_ptr().cast(),
                 name.max_chars(),
@@ -366,7 +366,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_subdev_spec,
             _ => unimplemented!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), 0, spec.as_mut_ptr()) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), 0, spec.as_mut_ptr()) })?;
         let mut spec = unsafe { spec.assume_init() };
         let mut size = 0;
         try_uhd!(unsafe {
@@ -421,7 +421,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_antenna,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), name.as_ptr(), self.channel) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), name.as_ptr(), self.channel) })?;
         Ok(self)
     }
 
@@ -431,7 +431,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_bandwidth,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), bw, self.channel) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), bw, self.channel) })?;
         Ok(self)
     }
 
@@ -451,7 +451,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_gain,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel, name.as_ptr(),) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), gain, self.channel, name.as_ptr(),) })?;
         Ok(self)
     }
 
@@ -465,7 +465,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 freq,
                 name.as_ptr(),
                 self.channel,
@@ -481,7 +481,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_normalized_tx_gain,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), gain, self.channel) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), gain, self.channel) })?;
         Ok(self)
     }
 
@@ -491,7 +491,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_rate,
             _ => unreachable!(),
         };
-        try_uhd!(unsafe { f(self.usrp.handle(), rate, self.channel) })?;
+        try_uhd!(unsafe { f(self.usrp.handle().as_mut_ptr(), rate, self.channel) })?;
         Ok(self)
     }
 
@@ -505,7 +505,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
         };
         try_uhd!(unsafe {
             f(
-                self.usrp.handle(),
+                self.usrp.handle().as_mut_ptr(),
                 req as *const _ as *mut _,
                 self.channel,
                 result.inner_mut(),
@@ -528,21 +528,21 @@ impl<'a> ChannelConfigurationBuilder<'a, RX_DIR> {
 
     pub fn set_agc_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_rx_agc(self.usrp.handle(), en, self.channel)
+            uhd_usrp_sys::uhd_usrp_set_rx_agc(self.usrp.handle().as_mut_ptr(), en, self.channel)
         })?;
         Ok(self)
     }
 
     pub fn set_dc_offset_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_rx_dc_offset_enabled(self.usrp.handle(), en, self.channel)
+            uhd_usrp_sys::uhd_usrp_set_rx_dc_offset_enabled(self.usrp.handle().as_mut_ptr(), en, self.channel)
         })?;
         Ok(self)
     }
 
     pub fn set_iq_balance_enabled(self, en: bool) -> Result<Self> {
         try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_set_rx_iq_balance_enabled(self.usrp.handle(), en, self.channel)
+            uhd_usrp_sys::uhd_usrp_set_rx_iq_balance_enabled(self.usrp.handle().as_mut_ptr(), en, self.channel)
         })?;
         Ok(self)
     }

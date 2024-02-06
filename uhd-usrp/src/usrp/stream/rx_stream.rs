@@ -29,7 +29,7 @@ impl<T: Sample> RxStream<T> {
         try_uhd!(unsafe { uhd_usrp_sys::uhd_rx_streamer_make(&mut handle) })?;
         let res = try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_rx_stream(
-                usrp.handle(),
+                usrp.handle().as_mut_ptr(),
                 args.inner() as *const _ as *mut _,
                 handle,
             )
