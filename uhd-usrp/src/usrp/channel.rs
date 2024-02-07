@@ -1,7 +1,5 @@
 use std::{
-    ffi::{CStr, CString},
-    mem::MaybeUninit,
-    ptr::addr_of_mut,
+    ffi::{CStr, CString}, mem::MaybeUninit, ptr::addr_of_mut
 };
 
 use crate::{

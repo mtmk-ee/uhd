@@ -1,13 +1,14 @@
 #![allow(unused)]
 
 use std::{
-    ffi::{CStr, CString},
-    mem::MaybeUninit,
-    ptr::{addr_of, addr_of_mut},
+    ffi::{CStr, CString}, mem::MaybeUninit, ops::{Deref, DerefMut}, ptr::{addr_of, addr_of_mut}
 };
 
 use crate::{try_uhd, Result, UhdError};
 
+/// A stack-allocated string used for retrieving strings from UHD.
+/// 
+/// The generic parameter `N` indicates the size of the string.
 pub(crate) struct FfiString<const N: usize> {
     s: [u8; N],
 }
@@ -17,14 +18,17 @@ impl<const N: usize> FfiString<N> {
         Self { s: [0; N] }
     }
 
+    /// Get a pointer to the char array.
     pub fn as_mut_ptr(&mut self) -> *mut i8 {
         self.s.as_mut_ptr().cast()
     }
 
+    /// Get the maximum number of characters the string can hold.
     pub const fn max_chars(&self) -> usize {
         N - 1
     }
 
+    /// Build a Rust [`String`] from the contents of this wrapper.
     pub fn into_string(self) -> Result<String> {
         Ok(CStr::from_bytes_until_nul(&self.s)
             .or(Err(UhdError::Unknown))?
@@ -33,6 +37,9 @@ impl<const N: usize> FfiString<N> {
     }
 }
 
+/// Wrapper for a UHD string vector.
+/// 
+/// Used to pass a string vector over the FFI boundary.
 pub(crate) struct FfiStringVec {
     handle: uhd_usrp_sys::uhd_string_vector_handle,
 }
@@ -96,12 +103,19 @@ impl Drop for FfiStringVec {
     }
 }
 
+/// Encapsulates exclusive ownership of a handle created through UHD.
+/// 
+/// This struct ensures the data pointed to by the handle is freed once
+/// the scope ends.
 pub(crate) struct OwnedHandle<T> {
     handle: *mut T,
     free: unsafe extern "C" fn(*mut *mut T) -> u32,
 }
 
 impl<T> OwnedHandle<T> {
+    /// Allocate a new `T` using UHD functions.
+    /// 
+    /// The corresponding `free` function will eventually be used to free the `T`.
     pub fn new(
         alloc: unsafe extern "C" fn(*mut *mut T) -> u32,
         free: unsafe extern "C" fn(*mut *mut T) -> u32,

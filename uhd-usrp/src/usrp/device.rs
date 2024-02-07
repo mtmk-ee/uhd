@@ -48,10 +48,12 @@ impl Usrp {
         Motherboard::new(self, mboard)
     }
 
+    /// Access read-only RX configuration for the given channel.
     pub fn rx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
         ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
     }
 
+    /// Get the number of available channels for RX.
     pub fn rx_channels(&self) -> Result<usize> {
         let mut channels = 0;
         try_uhd!(unsafe {
@@ -75,6 +77,7 @@ impl Usrp {
         Ok(())
     }
 
+    /// Set RX configuration for the given channel.
     pub fn set_rx_config<'a>(
         &'a mut self,
         channel: usize,
@@ -82,6 +85,7 @@ impl Usrp {
         ChannelConfigurationBuilder::<'a, RX_DIR>::new(self, channel)
     }
 
+    /// Set TX configuration for the given channel.
     pub fn set_tx_config<'a>(
         &'a mut self,
         channel: usize,
@@ -89,6 +93,7 @@ impl Usrp {
         ChannelConfigurationBuilder::<'a, TX_DIR>::new(self, channel)
     }
 
+    /// Get the number of available channels for TX.
     pub fn tx_channels(&self) -> Result<usize> {
         let mut channels = 0;
         try_uhd!(unsafe {
@@ -97,10 +102,12 @@ impl Usrp {
         Ok(channels)
     }
 
+    /// Access read-only TX configuration for the given channel.
     pub fn tx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
         ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
     }
 
+    /// Create a TX streamer.
     pub fn tx_stream<T: Sample>(&self, args: StreamArgs<T>) -> Result<TxStream<T>> {
         TxStream::open(self, args)
     }
