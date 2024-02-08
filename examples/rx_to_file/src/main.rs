@@ -38,7 +38,7 @@ struct Args {
 }
 
 fn write_to_file(recv: Receiver<Vec<Sample>>, file: PathBuf) -> Result<(), Box<dyn Error>> {
-    let f = OpenOptions::new().write(true).truncate(true).open(file)?;
+    let f = OpenOptions::new().create(true).write(true).truncate(true).open(file)?;
     let mut f = BufWriter::with_capacity(1_000_000, f);
     while let Ok(data) = recv.recv() {
         f.write_all(cast_slice(&data[..]))?;
@@ -48,6 +48,7 @@ fn write_to_file(recv: Receiver<Vec<Sample>>, file: PathBuf) -> Result<(), Box<d
 
 fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), Box<dyn Error>> {
     let mut rx_stream = usrp.rx_stream(StreamArgs::<Sample>::new().channels(&[0]))?;
+    println!("max: {}", rx_stream.max_samples_per_buffer());
     let mut buff = ArraySampleBuffer::<Sample>::new(1, rx_stream.max_samples_per_buffer());
 
     let mut reader = rx_stream
@@ -56,9 +57,13 @@ fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), 
         .open()?;
     let mut md = RxMetadata::new()?;
 
+    println!("{:?}", buff.iter_channels().flatten().collect::<Vec<_>>());
+
     let start = Instant::now();
     while start.elapsed() < dur {
+        println!("one");
         let samples = reader.recv(&mut buff, &mut md)?;
+        println!("two");
         if let Err(_) = buff
             .iter_channels()
             .try_for_each(|c| send.send(c[..samples].to_vec()))
