@@ -1,15 +1,16 @@
 use std::{
+    fmt::Debug,
+    mem::ManuallyDrop,
     ops::{Deref, Index, IndexMut},
-    slice::SliceIndex,
 };
 
 use crate::Sample;
 
 pub trait SampleBuffer<S: Sample> {
     fn channels(&self) -> usize;
-    fn samples_per_channel(&self) -> usize;
-    fn as_ptrs(&self) -> Box<[*const S]>;
-    fn as_mut_ptrs(&mut self) -> Box<[*mut S]>;
+    fn samples(&self) -> usize;
+    fn as_ptr(&self) -> *const *const S;
+    fn as_mut_ptr(&mut self) -> *mut *mut S;
 }
 
 impl<S: Sample> SampleBuffer<S> for [S] {
@@ -17,46 +18,16 @@ impl<S: Sample> SampleBuffer<S> for [S] {
         1
     }
 
-    fn samples_per_channel(&self) -> usize {
+    fn samples(&self) -> usize {
         self.len()
     }
 
-    fn as_ptrs(&self) -> Box<[*const S]> {
-        Box::new([self.as_ptr()])
+    fn as_ptr(&self) -> *const *const S {
+        self.as_ptr().cast()
     }
 
-    fn as_mut_ptrs(&mut self) -> Box<[*mut S]> {
-        Box::new([self.as_ptr().cast_mut()])
-    }
-}
-
-// Hack to allow [&[S]]
-impl<S, O, I> SampleBuffer<S> for O
-where
-    S: Sample,
-    O: Deref<Target = [I]>,
-    I: Deref<Target = [S]>,
-{
-    fn channels(&self) -> usize {
-        self.len()
-    }
-
-    fn samples_per_channel(&self) -> usize {
-        if self.len() == 0 {
-            return 0;
-        } else if self.iter().skip(1).any(|c| c.len() != self[0].len()) {
-            panic!("mismatched channel buffer lengths");
-        } else {
-            self[0].len()
-        }
-    }
-
-    fn as_ptrs(&self) -> Box<[*const S]> {
-        self.iter().map(|c| c.as_ptr()).collect()
-    }
-
-    fn as_mut_ptrs(&mut self) -> Box<[*mut S]> {
-        self.iter().map(|c| c.as_ptr().cast_mut()).collect()
+    fn as_mut_ptr(&mut self) -> *mut *mut S {
+        self.as_mut_ptr().cast()
     }
 }
 
@@ -65,21 +36,26 @@ where
 /// An `ArrayBuffer` implements `Deref` and can be indexed twice. The first index corresponds to the
 /// channel, and the second to the sample. All channel buffers have the same length.
 pub struct ArrayBuffer<S: Sample> {
-    inner: Box<[Box<[S]>]>,
-    samples_per_channel: usize,
+    inner: Box<[*mut S]>,
+    channels: usize,
+    samples: usize,
 }
 
 impl<S: Sample> ArrayBuffer<S> {
     /// Creates a new `ArrayBuffer` initialized with the default value for the `S` sample type.
-    pub fn new(channels: usize, samples_per_channel: usize) -> Self
+    pub fn new(channels: usize, samples: usize) -> Self
     where
         S: Clone + Default,
     {
         Self {
             inner: (0..channels)
-                .map(|_| vec![<S as Default>::default(); samples_per_channel].into_boxed_slice())
+                .map(|_| {
+                    let v = vec![<S as Default>::default(); samples];
+                    Box::leak(v.into_boxed_slice()).as_mut_ptr()
+                })
                 .collect(),
-            samples_per_channel,
+            channels,
+            samples,
         }
     }
 
@@ -96,103 +72,261 @@ impl<S: Sample> ArrayBuffer<S> {
     /// The caller must ensure that appropriate portions of the buffer are initialized properly
     /// before being used. Proper initialization could be receiving samples from a USRP or setting
     /// necessary sample to a valid value.
-    pub unsafe fn new_uninit(channels: usize, samples_per_channel: usize) -> Self {
+    pub unsafe fn new_uninit(channels: usize, samples: usize) -> Self {
         Self {
             inner: (0..channels)
                 .map(|_| {
-                    let mut x = Vec::with_capacity(samples_per_channel);
-                    unsafe { x.set_len(samples_per_channel) };
-                    x.into_boxed_slice()
+                    let mut x = Vec::with_capacity(samples);
+                    unsafe { x.set_len(samples) };
+                    Box::leak(x.into_boxed_slice()).as_mut_ptr()
                 })
                 .collect(),
-            samples_per_channel,
+            channels,
+            samples,
         }
     }
 
-    pub fn from_vec(vec: Vec<Vec<S>>) -> Self {
-        let samples_per_channel = match vec.len() {
-            0 => 0,
-            _ => {
-                if vec.iter().skip(1).any(|x| x.len() != vec[0].len()) {
-                    panic!("mismatched channel buffer lengths");
-                }
-                vec[0].len()
-            }
-        };
-        Self {
-            inner: vec.into_iter().map(|x| x.into_boxed_slice()).collect(),
-            samples_per_channel,
-        }
-    }
-
-    pub fn into_inner(self) -> Box<[Box<[S]>]> {
-        self.inner
-    }
-
-    pub fn to_vec(&self) -> Vec<Vec<S>>
+    pub fn from_iter(channels: usize, iter: impl Iterator<Item = S>) -> Self
     where
         S: Clone,
     {
-        self.inner.iter().map(|x| x.to_vec()).collect()
+        Self::from_vec(channels, iter.collect())
     }
 
-    pub fn into_vec(self) -> Vec<Vec<S>> {
+    pub fn from_nested_iter<I>(iter: impl Iterator<Item = I>) -> Self
+    where
+        I: Iterator<Item = S>,
+    {
+        Self::from_nested_vec(iter.map(|c| c.collect()).collect::<Vec<Vec<S>>>())
+    }
+
+    pub fn from_vec(channels: usize, value: Vec<S>) -> Self
+    where
+        S: Clone,
+    {
+        if value.len() % channels != 0 {
+            panic!("mismatched channel buffer lengths");
+        }
+        let samples = value.len() / channels;
+
+        Self {
+            inner: value
+                .chunks(samples)
+                .map(|c| Box::leak(c.to_vec().into_boxed_slice()).as_mut_ptr())
+                .collect(),
+            channels,
+            samples,
+        }
+    }
+
+    pub fn from_nested_vec(value: Vec<Vec<S>>) -> Self {
+        let channels = value.len();
+        let samples = value.get(0).map(|c| c.len()).unwrap_or(0);
+        if value.iter().skip(1).any(|c| c.len() != samples) {
+            panic!("mismatched channel buffer lengths")
+        }
+        Self {
+            inner: value
+                .into_iter()
+                .map(|c| Box::leak(c.into_boxed_slice()).as_mut_ptr())
+                .collect(),
+            channels,
+            samples,
+        }
+    }
+
+    pub fn get(&self, channel: usize) -> Option<&[S]> {
+        Some(unsafe { std::slice::from_raw_parts(*self.inner.get(channel)?, self.samples) })
+    }
+
+    pub fn get_mut(&mut self, channel: usize) -> Option<&mut [S]> {
+        Some(unsafe { std::slice::from_raw_parts_mut(*self.inner.get(channel)?, self.samples) })
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &[S]> {
         self.inner
-            .into_vec()
-            .into_iter()
-            .map(|x| x.into_vec())
-            .collect()
+            .iter()
+            .map(|c| unsafe { std::slice::from_raw_parts(*c, self.samples) })
     }
 
-    pub fn get<I>(&self, index: I) -> Option<&I::Output>
-    where
-        I: SliceIndex<[Box<[S]>]>,
-    {
-        self.inner.get(index)
+    pub fn iter_mut(&self) -> impl Iterator<Item = &mut [S]> {
+        self.inner
+            .iter()
+            .map(|c| unsafe { std::slice::from_raw_parts_mut(*c, self.samples) })
     }
 
-    pub fn get_mut<I>(&mut self, index: I) -> Option<&mut I::Output>
+    pub fn iter_samples(&self) -> impl Iterator<Item = &S> {
+        self.iter().map(|samples| samples.iter()).flatten()
+    }
+
+    pub fn iter_samples_mut(&mut self) -> impl Iterator<Item = &mut S> {
+        self.iter_mut().map(|samples| samples.iter_mut()).flatten()
+    }
+
+    pub fn to_nested_vec(&self) -> Vec<Vec<S>>
     where
-        I: SliceIndex<[Box<[S]>]>,
+        S: Clone,
     {
-        self.inner.get_mut(index)
+        Vec::from_iter(self.iter().map(|c| c.to_vec()))
+    }
+
+    pub fn into_nested_vec(self) -> Vec<Vec<S>> {
+        let mut shelf = ManuallyDrop::new(self);
+        let inner = std::mem::take(&mut shelf.inner);
+        let v = inner
+            .iter()
+            .map(|c| {
+                // SAFETY:
+                // - element type is the same before and after
+                // - all elements are initialized, unless `Self::new_uninit` was used
+                // - `Vec::into_boxed_slice` shrinks the capacity to len
+                unsafe { Vec::from_raw_parts(*c, shelf.samples, shelf.samples) }
+            })
+            .collect();
+        v
     }
 }
 
-impl<S: Sample> SampleBuffer<S> for ArrayBuffer<S> {
+impl<S> Drop for ArrayBuffer<S>
+where
+    S: Sample,
+{
+    fn drop(&mut self) {
+        for i in self.inner.iter() {
+            unsafe {
+                let _ = Box::from_raw(i.cast::<&mut [S]>());
+            }
+        }
+    }
+}
+
+impl<S: Sample + Clone> Clone for ArrayBuffer<S> {
+    fn clone(&self) -> Self {
+        Self::from_nested_vec(self.to_nested_vec())
+    }
+}
+
+impl<S: Sample + PartialEq> PartialEq for ArrayBuffer<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.channels == other.channels
+            && self.samples == other.samples
+            && self.iter().zip(other.iter()).all(|(a, b)| a == b)
+    }
+}
+
+impl<S: Sample + Debug> Debug for ArrayBuffer<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArrayBuffer")
+            .field("channels", &self.channels)
+            .field("samples", &self.samples)
+            .finish()
+    }
+}
+
+impl<S, O, I> From<O> for ArrayBuffer<S>
+where
+    S: Sample + Clone,
+    O: Deref<Target = [I]>,
+    I: Deref<Target = [S]>,
+{
+    fn from(value: O) -> Self {
+        Self::from_nested_vec(value.iter().map(|c| c.to_vec()).collect::<Vec<Vec<S>>>())
+    }
+}
+
+impl<S> SampleBuffer<S> for ArrayBuffer<S>
+where
+    S: Sample,
+{
     fn channels(&self) -> usize {
-        self.inner.len()
+        self.channels
     }
 
-    fn samples_per_channel(&self) -> usize {
-        self.samples_per_channel
+    fn samples(&self) -> usize {
+        self.samples
     }
 
-    fn as_ptrs(&self) -> Box<[*const S]> {
-        self.inner.iter().map(|x| x.as_ptr()).collect()
+    fn as_ptr(&self) -> *const *const S {
+        self.inner.as_ptr().cast()
     }
 
-    fn as_mut_ptrs(&mut self) -> Box<[*mut S]> {
-        self.inner.iter().map(|x| x.as_ptr().cast_mut()).collect()
-    }
-}
-
-impl<S: Sample, I> Index<I> for ArrayBuffer<S>
-where
-    I: SliceIndex<[Box<[S]>]>,
-{
-    type Output = I::Output;
-
-    fn index(&self, index: I) -> &Self::Output {
-        self.inner.index(index)
+    fn as_mut_ptr(&mut self) -> *mut *mut S {
+        self.inner.as_mut_ptr()
     }
 }
 
-impl<S: Sample, I> IndexMut<I> for ArrayBuffer<S>
+impl<S> Index<usize> for ArrayBuffer<S>
 where
-    I: SliceIndex<[Box<[S]>]>,
+    S: Sample,
 {
-    fn index_mut(&mut self, index: I) -> &mut <I as SliceIndex<[Box<[S]>]>>::Output {
-        self.inner.index_mut(index)
+    type Output = [S];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.get(index).expect("index out of bounds")
+    }
+}
+
+impl<S> IndexMut<usize> for ArrayBuffer<S>
+where
+    S: Sample,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.get_mut(index).expect("index out of bounds")
+    }
+}
+
+#[cfg(test)]
+mod test_array_buff {
+    use num_complex::Complex32;
+
+    use crate::{ArrayBuffer, SampleBuffer};
+
+    fn check_fill(mut a: ArrayBuffer<i16>) {
+        a.iter_samples_mut()
+            .enumerate()
+            .for_each(|(i, s)| *s = i as i16);
+        for i in 0..(a.channels * a.samples) {
+            assert_eq!(a[i / a.samples][i % a.samples], i as i16);
+        }
+    }
+
+    fn check_values(a: ArrayBuffer<i16>, s: impl Iterator<Item = i16>) {
+        assert!(a.iter_samples().zip(s).all(|(s1, s2)| *s1 == s2));
+    }
+
+    #[test]
+    pub fn test_creation() {
+        check_fill(ArrayBuffer::new(3, 10));
+        check_fill(unsafe { ArrayBuffer::new_uninit(3, 10) });
+        check_values(ArrayBuffer::<i16>::from_iter(5, 0..100), 0..100);
+        check_values(ArrayBuffer::from_vec(5, (0..100).collect()), 0..100);
+    }
+
+    #[test]
+    pub fn test_shape() {
+        let buff: ArrayBuffer<Complex32> = ArrayBuffer::new(10, 13);
+        assert_eq!(buff.channels(), 10);
+        assert_eq!(buff.samples(), 13);
+        assert_eq!(buff.inner.len(), 10);
+        assert!(buff.iter().all(|c| c.len() == 13))
+    }
+
+    #[test]
+    pub fn test_iter() {
+        const CHANNELS: usize = 10;
+        const SAMPLES: usize = 13;
+
+        let mut buff: ArrayBuffer<i16> = ArrayBuffer::new(CHANNELS, SAMPLES);
+        buff.iter_samples_mut()
+            .enumerate()
+            .for_each(|(i, s)| *s = i as i16);
+        check_values(buff, 0..(CHANNELS as i16 * SAMPLES as i16));
+    }
+
+    #[test]
+    pub fn test_clone() {
+        let buff: ArrayBuffer<i16> = ArrayBuffer::from_iter(5, 0..100);
+        let clone = buff.clone();
+        assert_eq!(buff, clone);
     }
 }

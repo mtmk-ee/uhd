@@ -63,12 +63,12 @@ fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), 
 
     let start = Instant::now();
     while start.elapsed() < dur {
-        let samples = reader.recv(&mut buff, &mut md)?;
-        if let Err(_) = send.send(buff[0][..samples].to_vec())
-        {
-            eprintln!("channel dropped before time elapsed");
-            break;
-        }
+        // let samples = reader.recv(&mut buff, &mut md)?;
+        // if let Err(_) = send.send(buff[0][..samples].to_vec())
+        // {
+        //     eprintln!("channel dropped before time elapsed");
+        //     break;
+        // }
     }
 
     Ok(())
