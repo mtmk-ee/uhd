@@ -189,8 +189,7 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
         buff: &mut impl SampleBuffer<T>,
         metadata: &mut RxMetadata,
     ) -> Result<usize> {
-        // self.recv_raw(buff.as_mut_ptr(), buff.samples_per_channel(), metadata)
-        Ok(0)
+        self.recv_raw(buff.as_mut_ptr(), buff.samples(), metadata)
     }
 
     pub unsafe fn recv_raw(

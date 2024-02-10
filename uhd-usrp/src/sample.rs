@@ -77,12 +77,3 @@ impl Sample for [i16; 2] {
         "sc16"
     }
 }
-
-#[repr(C)]
-pub struct Complex<T>
-where
-    [T; 2]: Sample,
-{
-    pub real: T,
-    pub imag: T,
-}

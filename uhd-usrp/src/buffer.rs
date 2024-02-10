@@ -213,6 +213,7 @@ impl<S: Sample + PartialEq> PartialEq for ArrayBuffer<S> {
             && self.iter().zip(other.iter()).all(|(a, b)| a == b)
     }
 }
+impl<S: Sample + Eq> Eq for ArrayBuffer<S> {}
 
 impl<S: Sample + Debug> Debug for ArrayBuffer<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

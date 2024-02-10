@@ -52,7 +52,6 @@ fn write_to_file(recv: Receiver<Vec<Sample>>, file: PathBuf) -> Result<(), Box<d
 
 fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), Box<dyn Error>> {
     let mut rx_stream = usrp.rx_stream(StreamArgs::<Sample>::new().channels(&[0]))?;
-    println!("max: {}", rx_stream.max_samples_per_buffer());
     let mut buff = ArrayBuffer::<Sample>::new(1, rx_stream.max_samples_per_buffer());
 
     let mut reader = rx_stream
@@ -63,12 +62,12 @@ fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), 
 
     let start = Instant::now();
     while start.elapsed() < dur {
-        // let samples = reader.recv(&mut buff, &mut md)?;
-        // if let Err(_) = send.send(buff[0][..samples].to_vec())
-        // {
-        //     eprintln!("channel dropped before time elapsed");
-        //     break;
-        // }
+        let samples = reader.recv(&mut buff, &mut md)?;
+        if let Err(_) = send.send(buff[0][..samples].to_vec())
+        {
+            eprintln!("channel dropped before time elapsed");
+            break;
+        }
     }
 
     Ok(())
