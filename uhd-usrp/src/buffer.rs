@@ -6,6 +6,11 @@ use std::{
 
 use crate::Sample;
 
+/// Trait indicating a type is compatible with UHD's notion of a sample buffer.
+///
+/// A sample buffer has a representation as two-dimensional array of `Sample`s.
+/// The first dimension is indexed by the channel number, while the second is
+/// indexed by the sample number.
 pub trait SampleBuffer<S: Sample> {
     fn channels(&self) -> usize;
     fn samples(&self) -> usize;
@@ -13,6 +18,8 @@ pub trait SampleBuffer<S: Sample> {
     fn as_mut_ptr(&mut self) -> *mut *mut S;
 }
 
+/// A slice `[S]` can be treated as a 1-channel [`SampleBuffer`] without requiring an additional
+/// pointer to the slice.
 impl<S: Sample> SampleBuffer<S> for [S] {
     fn channels(&self) -> usize {
         1
@@ -33,24 +40,33 @@ impl<S: Sample> SampleBuffer<S> for [S] {
 
 /// Lightweight 2D sample buffer where each channel is backed by contiguous memory.
 ///
-/// An `ArrayBuffer` implements `Deref` and can be indexed twice. The first index corresponds to the
-/// channel, and the second to the sample. All channel buffers have the same length.
+/// In many ways this type behaves as a `[&[S]]`. The first dimension is indexed by the
+/// channel number, while the second is indexed by the sample number.
 pub struct ArrayBuffer<S: Sample> {
+    /// Sample memory. Each `*mut S` is a leaked boxed slice whose length is equal to `samples`.
     inner: Box<[*mut S]>,
     channels: usize,
     samples: usize,
 }
 
 impl<S: Sample> ArrayBuffer<S> {
-    /// Creates a new `ArrayBuffer` initialized with the default value for the `S` sample type.
+    /// Creates a new `ArrayBuffer` with all samples initialized to the default sample value.
     pub fn new(channels: usize, samples: usize) -> Self
     where
         S: Clone + Default,
     {
+        Self::with_fill(channels, samples, Default::default())
+    }
+
+    /// Creates a new `ArrayBuffer` with all samples initialized to the given fill value.
+    pub fn with_fill(channels: usize, samples: usize, fill: S) -> Self
+    where
+        S: Clone,
+    {
         Self {
             inner: (0..channels)
                 .map(|_| {
-                    let v = vec![<S as Default>::default(); samples];
+                    let v = vec![fill.clone(); samples];
                     Box::leak(v.into_boxed_slice()).as_mut_ptr()
                 })
                 .collect(),
@@ -72,7 +88,7 @@ impl<S: Sample> ArrayBuffer<S> {
     /// The caller must ensure that appropriate portions of the buffer are initialized properly
     /// before being used. Proper initialization could be receiving samples from a USRP or setting
     /// necessary sample to a valid value.
-    pub unsafe fn new_uninit(channels: usize, samples: usize) -> Self {
+    pub unsafe fn uninit(channels: usize, samples: usize) -> Self {
         Self {
             inner: (0..channels)
                 .map(|_| {
@@ -86,6 +102,12 @@ impl<S: Sample> ArrayBuffer<S> {
         }
     }
 
+    /// Create a new `ArrayBuffer` with the given iterator and number of channels.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the number of elements yielded by the iterator is
+    /// not divisible by the number of channels.
     pub fn from_iter(channels: usize, iter: impl Iterator<Item = S>) -> Self
     where
         S: Clone,
@@ -141,6 +163,20 @@ impl<S: Sample> ArrayBuffer<S> {
 
     pub fn get_mut(&mut self, channel: usize) -> Option<&mut [S]> {
         Some(unsafe { std::slice::from_raw_parts_mut(*self.inner.get(channel)?, self.samples) })
+    }
+
+    pub fn fill(&mut self, value: S)
+    where
+        S: Clone,
+    {
+        self.iter_samples_mut().for_each(|s| *s = value.clone());
+    }
+
+    pub fn fill_channel(&mut self, channel: usize, value: S)
+    where
+        S: Clone,
+    {
+        self[channel].iter_mut().for_each(|s| *s = value.clone());
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &[S]> {
@@ -298,7 +334,7 @@ mod test_array_buff {
     #[test]
     pub fn test_creation() {
         check_fill(ArrayBuffer::new(3, 10));
-        check_fill(unsafe { ArrayBuffer::new_uninit(3, 10) });
+        check_fill(unsafe { ArrayBuffer::uninit(3, 10) });
         check_values(ArrayBuffer::<i16>::from_iter(5, 0..100), 0..100);
         check_values(ArrayBuffer::from_vec(5, (0..100).collect()), 0..100);
     }
