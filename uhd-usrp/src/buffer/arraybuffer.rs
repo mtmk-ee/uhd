@@ -35,7 +35,7 @@ impl<S: Sample> ArrayBuffer<S> {
             inner: (0..channels)
                 .map(|_| {
                     let v = vec![fill.clone(); samples];
-                    Box::leak(v.into_boxed_slice()).as_mut_ptr()
+                    Box::into_raw(v.into_boxed_slice()).cast()
                 })
                 .collect(),
             channels,
@@ -60,9 +60,9 @@ impl<S: Sample> ArrayBuffer<S> {
         Self {
             inner: (0..channels)
                 .map(|_| {
-                    let mut x = Vec::with_capacity(samples);
+                    let mut x: Vec<S> = Vec::with_capacity(samples);
                     unsafe { x.set_len(samples) };
-                    Box::leak(x.into_boxed_slice()).as_mut_ptr()
+                    Box::into_raw(x.into_boxed_slice()).cast()
                 })
                 .collect(),
             channels,
@@ -96,6 +96,16 @@ impl<S: Sample> ArrayBuffer<S> {
         Self::from_vec_channels(iter.map(|i| i.collect()).collect())
     }
 
+    /// Builds an `ArrayBuffer` from a flat list of samples.
+    ///
+    ///
+    /// The order of the given samples is assumed to be:
+    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
+    /// is sample `j` of channel `i`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the length of the given `Vec` is not divisible by `channels`.
     pub fn from_vec_samples(channels: usize, value: Vec<S>) -> Self
     where
         S: Clone,
@@ -108,13 +118,21 @@ impl<S: Sample> ArrayBuffer<S> {
         Self {
             inner: value
                 .chunks(samples)
-                .map(|c| Box::leak(c.to_vec().into_boxed_slice()).as_mut_ptr())
+                .map(|c| Box::into_raw(c.to_vec().into_boxed_slice()).cast())
                 .collect(),
             channels,
             samples,
         }
     }
 
+    /// Builds an `ArrayBuffer` from a nested `Vec` of samples.
+    ///
+    /// Each inner vector corresponds to the samples for a single channel.
+    /// All inner vectors must have the same length.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the inner vectors do not have the same length.
     pub fn from_vec_channels(value: Vec<Vec<S>>) -> Self {
         let channels = value.len();
         let samples = value.get(0).map(|c| c.len()).unwrap_or(0);
@@ -124,13 +142,20 @@ impl<S: Sample> ArrayBuffer<S> {
         Self {
             inner: value
                 .into_iter()
-                .map(|c| Box::leak(c.into_boxed_slice()).as_mut_ptr())
+                .map(|c| Box::into_raw(c.into_boxed_slice()).cast())
                 .collect(),
             channels,
             samples,
         }
     }
 
+    /// Build a nested vector of samples from this `ArrayBuffer`.
+    ///
+    /// Each inner `Vec<S>` corresponds to a single channel, ordered in the same
+    /// way as this `ArrayBuffer`.
+    ///
+    /// Using [`ArrayBuffer::into_vec`] is preferred over this function where possible,
+    /// as this function copies each channel's sample buffer.
     pub fn to_vec(&self) -> Vec<Vec<S>>
     where
         S: Clone,
@@ -138,6 +163,11 @@ impl<S: Sample> ArrayBuffer<S> {
         self.iter_channels().map(|c| c.to_vec()).collect()
     }
 
+    /// Copies each sample from each channel into a flat vector.
+    ///
+    /// The order of the returned samples is guaranteed to be:
+    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
+    /// is sample `j` of channel `i`.
     pub fn to_flat_vec(&self) -> Vec<S>
     where
         S: Clone,
@@ -149,6 +179,13 @@ impl<S: Sample> ArrayBuffer<S> {
             .collect()
     }
 
+    /// Consume self and build a nested vector of samples.
+    ///
+    /// Each inner `Vec<S>` corresponds to a single channel, ordered in the same
+    /// way as this `ArrayBuffer`.
+    ///
+    /// Using this function should be preferred over [`ArrayBuffer::to_vec`]
+    /// as this function avoids copying each channel's sample buffer.
     pub fn into_vec(self) -> Vec<Vec<S>> {
         let mut shelf = ManuallyDrop::new(self);
         let inner = std::mem::take(&mut shelf.inner);
@@ -187,10 +224,24 @@ where
     }
 
     fn channel(&self, channel: usize) -> Option<&[S]> {
+        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
+        // which has the following implications:
+        // - the memory is valid for both reads and writes and is aligned
+        // - the memory is contiguous single allocation of the correct length
+        //
+        // Also, the lifetime constraints on this function and the shared reference
+        // guarantee the memory is not mutated elsewhere for the lifetime of 'a
         Some(unsafe { std::slice::from_raw_parts(*self.inner.get(channel)?, self.samples) })
     }
 
     fn channel_mut(&mut self, channel: usize) -> Option<&mut [S]> {
+        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
+        // which has the following implications:
+        // - the memory is valid for both reads and writes and is aligned
+        // - the memory is contiguous single allocation of the correct length
+        //
+        // Also, the lifetime constraints on this function and the exclusive reference
+        // guarantee the memory is not accessed elsewhere for the lifetime of 'a
         Some(unsafe { std::slice::from_raw_parts_mut(*self.inner.get(channel)?, self.samples) })
     }
 
@@ -198,18 +249,32 @@ where
     where
         S: 'a,
     {
-        self.inner
-            .iter()
-            .map(|c| unsafe { std::slice::from_raw_parts(*c, self.samples) })
+        self.inner.iter().map(|c| {
+            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
+            // which has the following implications:
+            // - the memory is valid for both reads and writes and is aligned
+            // - the memory is contiguous single allocation of the correct length
+            //
+            // Also, the lifetime constraints on this function and the shared reference
+            // guarantee the memory is not mutated elsewhere for the lifetime of 'a
+            unsafe { std::slice::from_raw_parts(*c, self.samples) }
+        })
     }
 
     fn iter_channels_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [S]>
     where
         S: 'a,
     {
-        self.inner
-            .iter()
-            .map(|c| unsafe { std::slice::from_raw_parts_mut(*c, self.samples) })
+        self.inner.iter().map(|c| {
+            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
+            // which has the following implications:
+            // - the memory is valid for both reads and writes and is aligned
+            // - the memory is contiguous single allocation of the correct length
+            //
+            // Also, the lifetime constraints on this function and the exclusive reference
+            // guarantee the memory is not accessed elsewhere for the lifetime of 'a
+            unsafe { std::slice::from_raw_parts_mut(*c, self.samples) }
+        })
     }
 }
 
@@ -219,6 +284,8 @@ where
 {
     fn drop(&mut self) {
         for i in self.inner.iter() {
+            // SAFETY: the data being reclaimed with `Box::from_raw` was originally obtained
+            // using `Box::into_raw`.
             unsafe {
                 let _ = Box::from_raw(i.cast::<&mut [S]>());
             }
@@ -253,6 +320,7 @@ impl<S: Sample + Debug> Debug for ArrayBuffer<S> {
     }
 }
 
+// e.g. From<&[&[S]]>, but also works for Vec<Vec<S>>, &[Vec<S>], etc.
 impl<S, O, I> From<O> for ArrayBuffer<S>
 where
     S: Sample + Clone,
