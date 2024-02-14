@@ -53,3 +53,27 @@ impl Sample for i16 {
         "s16"
     }
 }
+
+impl Sample for [f32; 2] {
+    fn name() -> &'static str {
+        "fc32"
+    }
+}
+
+impl Sample for [f64; 2] {
+    fn name() -> &'static str {
+        "fc64"
+    }
+}
+
+impl Sample for [i8; 2] {
+    fn name() -> &'static str {
+        "sc8"
+    }
+}
+
+impl Sample for [i16; 2] {
+    fn name() -> &'static str {
+        "sc16"
+    }
+}

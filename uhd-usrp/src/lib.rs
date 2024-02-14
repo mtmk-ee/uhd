@@ -6,12 +6,12 @@ mod sample;
 mod time;
 pub mod usrp;
 
-pub use buffer::{ArraySampleBuffer, SampleBuffer};
+pub use buffer::{SampleBuffer, ArrayBuffer};
 pub use error::{last_error_message, Result, UhdError};
+pub use misc_types::*;
 pub use sample::Sample;
 pub use time::DeviceTime;
 pub use usrp::*;
-pub use misc_types::*;
 
 pub(crate) use crate::error::try_uhd;
 
