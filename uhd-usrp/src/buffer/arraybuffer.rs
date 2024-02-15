@@ -149,6 +149,34 @@ impl<S: Sample> ArrayBuffer<S> {
         }
     }
 
+    /// Returns the samples belonging to the specified channel.
+    ///
+    /// `None` is returned if the channel is out of bounds.
+    pub fn channel(&self, channel: usize) -> Option<&[S]> {
+        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
+        // which has the following implications:
+        // - the memory is valid for both reads and writes and is aligned
+        // - the memory is contiguous single allocation of the correct length
+        //
+        // Also, the lifetime constraints on this function and the shared reference
+        // guarantee the memory is not mutated elsewhere for the lifetime of 'a
+        Some(unsafe { std::slice::from_raw_parts(*self.inner.get(channel)?, self.samples) })
+    }
+
+    /// Returns the samples belonging to the specified channel.
+    ///
+    /// `None` is returned if the channel is out of bounds.
+    pub fn channel_mut(&mut self, channel: usize) -> Option<&mut [S]> {
+        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
+        // which has the following implications:
+        // - the memory is valid for both reads and writes and is aligned
+        // - the memory is contiguous single allocation of the correct length
+        //
+        // Also, the lifetime constraints on this function and the exclusive reference
+        // guarantee the memory is not accessed elsewhere for the lifetime of 'a
+        Some(unsafe { std::slice::from_raw_parts_mut(*self.inner.get(channel)?, self.samples) })
+    }
+
     /// Build a nested vector of samples from this `ArrayBuffer`.
     ///
     /// Each inner `Vec<S>` corresponds to a single channel, ordered in the same
@@ -201,6 +229,67 @@ impl<S: Sample> ArrayBuffer<S> {
             .collect();
         v
     }
+
+    /// Returns an iterator over the channels of this `ArrayBuffer`.
+    ///
+    /// Each yielded element is a reference to the channel's corresponding sample buffer.
+    pub fn iter_channels<'a>(&'a self) -> impl Iterator<Item = &'a [S]>
+    where
+        S: 'a,
+    {
+        self.inner.iter().map(|c| {
+            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
+            // which has the following implications:
+            // - the memory is valid for both reads and writes and is aligned
+            // - the memory is contiguous single allocation of the correct length
+            //
+            // Also, the lifetime constraints on this function and the shared reference
+            // guarantee the memory is not mutated elsewhere for the lifetime of 'a
+            unsafe { std::slice::from_raw_parts(*c, self.samples) }
+        })
+    }
+    /// Returns an iterator over the channels of this `ArrayBuffer`.
+    ///
+    /// Each yielded element is a reference to the channel's corresponding sample buffer.
+    pub fn iter_channels_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [S]>
+    where
+        S: 'a,
+    {
+        self.inner.iter().map(|c| {
+            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
+            // which has the following implications:
+            // - the memory is valid for both reads and writes and is aligned
+            // - the memory is contiguous single allocation of the correct length
+            //
+            // Also, the lifetime constraints on this function and the exclusive reference
+            // guarantee the memory is not accessed elsewhere for the lifetime of 'a
+            unsafe { std::slice::from_raw_parts_mut(*c, self.samples) }
+        })
+    }
+    /// Returns a flattened iterator over all samples from all channels.
+    ///
+    /// The order of the returned samples is guaranteed to be:
+    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
+    /// is sample `j` of channel `i`.
+    pub fn iter_samples<'a>(&'a self) -> impl Iterator<Item = &'a S>
+    where
+        S: 'a,
+    {
+        self.iter_channels().map(|samples| samples.iter()).flatten()
+    }
+    /// Returns a flattened iterator over all samples from all channels.
+    ///
+    /// The order of the returned samples is guaranteed to be:
+    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
+    /// is sample `j` of channel `i`.
+    pub fn iter_samples_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut S>
+    where
+        S: 'a,
+    {
+        self.iter_channels_mut()
+            .map(|samples| samples.iter_mut())
+            .flatten()
+    }
 }
 
 impl<S> SampleBuffer<S> for ArrayBuffer<S>
@@ -221,60 +310,6 @@ where
 
     fn as_mut_ptr(&mut self) -> *mut *mut S {
         self.inner.as_mut_ptr()
-    }
-
-    fn channel(&self, channel: usize) -> Option<&[S]> {
-        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
-        // which has the following implications:
-        // - the memory is valid for both reads and writes and is aligned
-        // - the memory is contiguous single allocation of the correct length
-        //
-        // Also, the lifetime constraints on this function and the shared reference
-        // guarantee the memory is not mutated elsewhere for the lifetime of 'a
-        Some(unsafe { std::slice::from_raw_parts(*self.inner.get(channel)?, self.samples) })
-    }
-
-    fn channel_mut(&mut self, channel: usize) -> Option<&mut [S]> {
-        // SAFETY: the data was originally obtained using `Vec::into_boxed_slice`,
-        // which has the following implications:
-        // - the memory is valid for both reads and writes and is aligned
-        // - the memory is contiguous single allocation of the correct length
-        //
-        // Also, the lifetime constraints on this function and the exclusive reference
-        // guarantee the memory is not accessed elsewhere for the lifetime of 'a
-        Some(unsafe { std::slice::from_raw_parts_mut(*self.inner.get(channel)?, self.samples) })
-    }
-
-    fn iter_channels<'a>(&'a self) -> impl Iterator<Item = &'a [S]>
-    where
-        S: 'a,
-    {
-        self.inner.iter().map(|c| {
-            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
-            // which has the following implications:
-            // - the memory is valid for both reads and writes and is aligned
-            // - the memory is contiguous single allocation of the correct length
-            //
-            // Also, the lifetime constraints on this function and the shared reference
-            // guarantee the memory is not mutated elsewhere for the lifetime of 'a
-            unsafe { std::slice::from_raw_parts(*c, self.samples) }
-        })
-    }
-
-    fn iter_channels_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [S]>
-    where
-        S: 'a,
-    {
-        self.inner.iter().map(|c| {
-            // SAFETY: the data at `c` was originally obtained using `Vec::into_boxed_slice`,
-            // which has the following implications:
-            // - the memory is valid for both reads and writes and is aligned
-            // - the memory is contiguous single allocation of the correct length
-            //
-            // Also, the lifetime constraints on this function and the exclusive reference
-            // guarantee the memory is not accessed elsewhere for the lifetime of 'a
-            unsafe { std::slice::from_raw_parts_mut(*c, self.samples) }
-        })
     }
 }
 

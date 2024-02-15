@@ -11,7 +11,7 @@ use bytemuck::cast_slice;
 use clap::Parser;
 use num_complex::Complex32;
 
-use uhd_usrp::{ArrayBuffer, RxMetadata, StreamArgs, Usrp};
+use uhd_usrp::{RecvOptions, RxMetadata, StreamArgs, Usrp};
 
 type Sample = Complex32;
 
@@ -52,19 +52,15 @@ fn write_to_file(recv: Receiver<Vec<Sample>>, file: PathBuf) -> Result<(), Box<d
 
 fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), Box<dyn Error>> {
     let mut rx_stream = usrp.rx_stream(StreamArgs::<Sample>::new().channels(&[0]))?;
-    let mut buff = ArrayBuffer::<Sample>::new(1, rx_stream.max_samples_per_buffer());
+    let mut buff = vec![Complex32::new(0.0, 0.0); rx_stream.max_samples_per_buffer()];
 
-    let mut reader = rx_stream
-        .reader()
-        .with_timeout(Duration::from_secs_f32(0.1))
-        .open()?;
+    let mut reader = rx_stream.reader().open()?;
     let mut md = RxMetadata::new()?;
 
     let start = Instant::now();
     while start.elapsed() < dur {
-        let samples = reader.recv(&mut buff, &mut md)?;
-        if let Err(_) = send.send(buff[0][..samples].to_vec())
-        {
+        let samples = reader.recv(&mut buff, &mut md, RecvOptions::new())?;
+        if let Err(_) = send.send(buff[..samples].to_vec()) {
             eprintln!("channel dropped before time elapsed");
             break;
         }

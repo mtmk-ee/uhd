@@ -1,3 +1,5 @@
+use std::ops::DerefMut;
+
 use crate::Sample;
 
 mod arraybuffer;
@@ -24,55 +26,14 @@ pub trait SampleBuffer<S: Sample> {
     /// This pointer points to an array where each element is
     /// a pointer to a channel's sample buffer.
     fn as_mut_ptr(&mut self) -> *mut *mut S;
-    /// Returns the samples belonging to the specified channel.
-    ///
-    /// `None` is returned if the channel is out of bounds.
-    fn channel(&self, channel: usize) -> Option<&[S]>;
-    /// Returns the samples belonging to the specified channel.
-    ///
-    /// `None` is returned if the channel is out of bounds.
-    fn channel_mut(&mut self, channel: usize) -> Option<&mut [S]>;
-    /// Returns an iterator over the channels of this `ArrayBuffer`.
-    ///
-    /// Each yielded element is a reference to the channel's corresponding sample buffer.
-    fn iter_channels<'a>(&'a self) -> impl Iterator<Item = &'a [S]>
-    where
-        S: 'a;
-    /// Returns an iterator over the channels of this `ArrayBuffer`.
-    ///
-    /// Each yielded element is a reference to the channel's corresponding sample buffer.
-    fn iter_channels_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [S]>
-    where
-        S: 'a;
-    /// Returns a flattened iterator over all samples from all channels.
-    ///
-    /// The order of the returned samples is guaranteed to be:
-    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
-    /// is sample `j` of channel `i`.
-    fn iter_samples<'a>(&'a self) -> impl Iterator<Item = &'a S>
-    where
-        S: 'a,
-    {
-        self.iter_channels().map(|samples| samples.iter()).flatten()
-    }
-    /// Returns a flattened iterator over all samples from all channels.
-    ///
-    /// The order of the returned samples is guaranteed to be:
-    /// `[S(0,0), S(0,1), S(0,2)..., S(1,0), S(1,1), S(1,2), ...]`, where `S(i,j)`
-    /// is sample `j` of channel `i`.
-    fn iter_samples_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut S>
-    where
-        S: 'a,
-    {
-        self.iter_channels_mut()
-            .map(|samples| samples.iter_mut())
-            .flatten()
-    }
 }
 
 /// A slice `[S]` can be treated as a 1-channel [`SampleBuffer`] without requiring an additional
 /// pointer to the slice.
-impl<S: Sample> SampleBuffer<S> for [S] {
+impl<S: Sample, T> SampleBuffer<S> for T
+where
+    T: DerefMut<Target = [S]>,
+{
     fn channels(&self) -> usize {
         1
     }
@@ -82,38 +43,25 @@ impl<S: Sample> SampleBuffer<S> for [S] {
     }
 
     fn as_ptr(&self) -> *const *const S {
-        self.as_ptr().cast()
+        self.deref().as_ptr().cast()
     }
 
     fn as_mut_ptr(&mut self) -> *mut *mut S {
-        self.as_mut_ptr().cast()
+        self.deref_mut().as_mut_ptr().cast()
     }
+}
 
-    fn channel(&self, channel: usize) -> Option<&[S]> {
-        match channel {
-            0 => Some(self),
-            _ => None,
-        }
-    }
+#[cfg(test)]
+mod test {
+    use crate::{Sample, SampleBuffer};
 
-    fn channel_mut(&mut self, channel: usize) -> Option<&mut [S]> {
-        match channel {
-            0 => Some(self),
-            _ => None,
-        }
-    }
+    fn takes_samplebuff<S: Sample>(_buff: &impl SampleBuffer<S>) {}
+    fn takes_mut_samplebuff<S: Sample>(_buff: &mut impl SampleBuffer<S>) {}
 
-    fn iter_channels<'a>(&'a self) -> impl Iterator<Item = &'a [S]>
-    where
-        S: 'a,
-    {
-        std::iter::once(self)
-    }
-
-    fn iter_channels_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut [S]>
-    where
-        S: 'a,
-    {
-        std::iter::once(self)
+    #[test]
+    fn test_blah() {
+        let mut v = vec![0i16; 10];
+        takes_samplebuff(&v);
+        takes_mut_samplebuff(&mut v);
     }
 }
