@@ -12,5 +12,5 @@ pub use device_args::DeviceArgs;
 pub use mboard::{GpioBank, Motherboard};
 pub use metadata::{RxErrorcode, RxMetadata, TxMetadata};
 pub use sensor::SensorValue;
-pub use stream::{RxStream, RxStreamReaderOptions, StreamArgs, TxStream,};
+pub use stream::{RecvOptions, RxStream, RxStreamReaderOptions, StreamArgs, TxStream};
 pub use tune::{TuneRequest, TuneRequestPolicy, TuneResult};

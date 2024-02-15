@@ -81,8 +81,6 @@ impl<T: Sample> RxStream<T> {
 pub struct RxStreamReaderOptions<'a, T: Sample> {
     stream: &'a RxStream<T>,
     at_time: Option<DeviceTime>,
-    timeout: Option<Duration>,
-    one_packet: bool,
     limit: Option<(usize, bool)>,
 }
 
@@ -91,8 +89,6 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
         Self {
             stream,
             at_time: None,
-            timeout: None,
-            one_packet: false,
             limit: None,
         }
     }
@@ -107,11 +103,7 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
         self
     }
 
-    pub fn one_packet(mut self) -> Self {
-        self.one_packet = true;
-        self
-    }
-
+    /// Open an [`RxStreamReader`] with the current options.
     pub fn open(self) -> Result<RxStreamReader<'a, T>> {
         let mut cmd = uhd_usrp_sys::uhd_stream_cmd_t {
             stream_mode: uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_START_CONTINUOUS,
@@ -138,23 +130,40 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
         })?;
         Ok(RxStreamReader {
             stream: self.stream,
-            timeout: self.timeout,
-            one_packet: self.one_packet,
         })
-    }
-
-    pub fn with_timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = Some(timeout);
-        self
     }
 }
 
 unsafe impl<T: Sample + Send> Send for RxStream<T> {}
 
-pub struct RxStreamReader<'a, T: Sample> {
-    stream: &'a RxStream<T>,
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct RecvOptions {
     timeout: Option<Duration>,
     one_packet: bool,
+}
+
+impl RecvOptions {
+    pub fn new() -> Self {
+        Self {
+            timeout: None,
+            one_packet: false,
+        }
+    }
+
+    pub fn one_packet(mut self) -> Self {
+        self.one_packet = true;
+        self
+    }
+
+    /// Set a timeout
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+}
+
+pub struct RxStreamReader<'a, T: Sample> {
+    stream: &'a RxStream<T>,
 }
 
 impl<'a, T: Sample> RxStreamReader<'a, T> {
@@ -162,21 +171,27 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
         &mut self,
         buff: &mut impl SampleBuffer<T>,
         metadata: &mut RxMetadata,
+        opts: RecvOptions,
     ) -> Result<usize> {
         if buff.channels() != self.stream.channels() {
             return Err(UhdError::Index);
         }
-        unsafe { self.recv_unchecked(buff, metadata) }
+        unsafe { self.recv_unchecked(buff, metadata, opts) }
     }
 
-    pub fn recv_until<F: Fn(&mut B, &mut RxMetadata) -> bool, B: SampleBuffer<T>>(
+    pub fn recv_until<F, B>(
         &mut self,
         buff: &mut B,
         metadata: &mut RxMetadata,
+        opts: RecvOptions,
         predicate: F,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        F: Fn(&mut B, &mut RxMetadata) -> bool,
+        B: SampleBuffer<T>,
+    {
         loop {
-            self.recv(buff, metadata)?;
+            self.recv(buff, metadata, opts)?;
             if !predicate(buff, metadata) {
                 break;
             }
@@ -188,8 +203,9 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
         &mut self,
         buff: &mut impl SampleBuffer<T>,
         metadata: &mut RxMetadata,
+        opts: RecvOptions,
     ) -> Result<usize> {
-        self.recv_raw(buff.as_mut_ptr(), buff.samples(), metadata)
+        self.recv_raw(buff.as_mut_ptr(), buff.samples(), metadata, opts)
     }
 
     pub unsafe fn recv_raw(
@@ -197,6 +213,7 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
         buff: *mut *mut T,
         samples_per_channel: usize,
         metadata: &mut RxMetadata,
+        opts: RecvOptions,
     ) -> Result<usize> {
         let mut received = 0;
         let handle = metadata.handle_mut();
@@ -205,8 +222,8 @@ impl<'a, T: Sample> RxStreamReader<'a, T> {
             buff.cast(),
             samples_per_channel,
             handle.as_mut_mut_ptr(),
-            self.timeout.unwrap_or(Duration::ZERO).as_secs_f64(),
-            self.one_packet,
+            opts.timeout.unwrap_or(Duration::ZERO).as_secs_f64(),
+            opts.one_packet,
             addr_of_mut!(received),
         ))?;
         Ok(received)
