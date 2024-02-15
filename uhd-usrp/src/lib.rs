@@ -5,6 +5,7 @@ pub(crate) mod misc_types;
 mod sample;
 mod time;
 pub mod usrp;
+pub mod logging;
 
 pub use buffer::{SampleBuffer, ArrayBuffer};
 pub use error::{last_error_message, Result, UhdError};
