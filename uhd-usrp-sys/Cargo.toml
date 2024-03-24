@@ -15,3 +15,7 @@ links = "uhd"
 
 [build-dependencies]
 bindgen = "0.69.2"
+
+[features]
+static = []
+# vendored = []
