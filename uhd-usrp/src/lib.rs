@@ -11,7 +11,7 @@ pub use buffer::{SampleBuffer, ArrayBuffer};
 pub use error::{last_error_message, Result, UhdError};
 pub use misc_types::*;
 pub use sample::Sample;
-pub use time::DeviceTime;
+pub use time::TimeSpec;
 pub use usrp::*;
 
 pub(crate) use crate::error::try_uhd;
