@@ -1,6 +1,6 @@
 use std::{ffi::CString, marker::PhantomData, ptr::addr_of_mut};
 
-use crate::{error::try_uhd, ffi::OwnedHandle, stream::StreamArgs, DeviceTime, Result, Sample};
+use crate::{error::try_uhd, ffi::OwnedHandle, stream::StreamArgs, TimeSpec, Result, Sample};
 
 use super::{
     channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
@@ -64,12 +64,12 @@ impl Usrp {
         RxStream::open(self, args)
     }
 
-    pub fn set_time_unknown_pps(&mut self, time: DeviceTime) -> Result<()> {
+    pub fn set_time_unknown_pps(&mut self, time: TimeSpec) -> Result<()> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_time_unknown_pps(
                 self.handle.as_mut_ptr(),
-                time.full_seconds() as i64,
-                time.fractional_seconds(),
+                time.full_secs(),
+                time.frac_secs(),
             )
         })?;
         Ok(())

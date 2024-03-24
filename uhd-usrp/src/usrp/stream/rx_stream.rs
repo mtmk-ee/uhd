@@ -9,7 +9,7 @@ use crate::{
     buffer::SampleBuffer,
     error::try_uhd,
     usrp::{metadata::RxMetadata, Usrp},
-    DeviceTime, Result, Sample, UhdError,
+    TimeSpec, Result, Sample, UhdError,
 };
 
 use super::stream_args::StreamArgs;
@@ -80,7 +80,7 @@ impl<T: Sample> RxStream<T> {
 
 pub struct RxStreamReaderOptions<'a, T: Sample> {
     stream: &'a RxStream<T>,
-    at_time: Option<DeviceTime>,
+    at_time: Option<TimeSpec>,
     limit: Option<(usize, bool)>,
 }
 
@@ -93,7 +93,7 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
         }
     }
 
-    pub fn at_time(mut self, delay: DeviceTime) -> Self {
+    pub fn at_time(mut self, delay: TimeSpec) -> Self {
         self.at_time = Some(delay);
         self
     }
@@ -121,8 +121,8 @@ impl<'a, T: Sample> RxStreamReaderOptions<'a, T> {
             };
         }
         if let Some(at_time) = self.at_time {
-            cmd.time_spec_full_secs = at_time.full_seconds() as i64;
-            cmd.time_spec_frac_secs = at_time.fractional_seconds();
+            cmd.time_spec_full_secs = at_time.full_secs() as i64;
+            cmd.time_spec_frac_secs = at_time.frac_secs();
         }
 
         try_uhd!(unsafe {

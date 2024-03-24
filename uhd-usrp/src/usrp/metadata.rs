@@ -2,17 +2,17 @@ use std::ptr::addr_of_mut;
 
 use num_enum::TryFromPrimitive;
 
-use crate::{error::try_uhd, ffi::OwnedHandle, DeviceTime, Result, UhdError};
+use crate::{error::try_uhd, ffi::OwnedHandle, TimeSpec, Result, UhdError};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TxMetadata {
-    offset: Option<DeviceTime>,
+    offset: Option<TimeSpec>,
     start_of_burst: bool,
     end_of_burst: bool,
 }
 
 impl TxMetadata {
-    pub fn offset(mut self, offset: Option<DeviceTime>) -> Self {
+    pub fn offset(mut self, offset: Option<TimeSpec>) -> Self {
         self.offset = offset;
         self
     }
@@ -30,7 +30,7 @@ impl TxMetadata {
     pub(crate) fn to_handle(self) -> Result<OwnedHandle<uhd_usrp_sys::uhd_tx_metadata_t>> {
         let mut handle = std::ptr::null_mut();
         let (full_secs, frac_secs) = match self.offset {
-            Some(dur) => (dur.full_seconds() as i64, dur.fractional_seconds()),
+            Some(dur) => (dur.full_secs() as i64, dur.frac_secs()),
             None => (0i64, 0f64),
         };
         try_uhd!(unsafe {
@@ -143,7 +143,7 @@ impl RxMetadata {
         Ok(result)
     }
 
-    pub fn time_spec(&self) -> Result<Option<DeviceTime>> {
+    pub fn time_spec(&self) -> Result<Option<TimeSpec>> {
         let mut has_time_spec = false;
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_rx_metadata_has_time_spec(
@@ -164,10 +164,9 @@ impl RxMetadata {
                 addr_of_mut!(frac_secs),
             )
         })?;
-        // TODO: may have precision issues for large times
-        Ok(Some(DeviceTime::from_parts(
-            full_secs as u64,
-            frac_secs as f64,
-        )))
+        Ok(TimeSpec::try_from_parts(
+            full_secs,
+            frac_secs,
+        ))
     }
 }

@@ -98,3 +98,11 @@ pub fn last_error_message() -> Result<String> {
         .to_string_lossy()
         .into_owned())
 }
+
+#[derive(thiserror::Error, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeError {
+    #[error("the duration is too large to represent")]
+    Overflow,
+    #[error("the fractional seconds are out of bounds")]
+    FracSecsOutOfBounds,
+}
