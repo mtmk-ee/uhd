@@ -1,22 +1,51 @@
-use std::env;
-use std::path::PathBuf;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use bindgen::EnumVariation;
 
-fn main() {
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rustc-link-lib=uhd");
+pub fn main() {
+    for path in link_search_dirs() {
+        println!("cargo:rustc-link-search={}", path.to_str().unwrap());
+    }
 
+    if cfg!(feature = "static") {
+        println!("cargo:rustc-link-lib=static=uhd");
+    } else {
+        println!("cargo:rustc-link-lib=dylib=uhd");
+    }
 
+    let bindings_path = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
+    write_bindings(&bindings_path);
+}
+
+pub fn write_bindings(path: &Path) {
     let bindings = bindgen::Builder::default()
-        .header("/usr/local/include/uhd.h")
+        .header("wrapper.h")
+        .allowlist_item("uhd_.+")
         .default_enum_style(EnumVariation::ModuleConsts)
-        .allowlist_function("^uhd_.+")
+        .derive_default(true)
         .generate()
-        .expect("Unable to generate bindings");
+        .expect("failed to generate bindings");
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
+        .write_to_file(path)
+        .expect("failed to write bindings.rs");
+}
+
+fn link_search_dirs() -> Vec<PathBuf> {
+    let mut dirs = vec![];
+    match target_os().as_deref() {
+        Some("linux") => dirs.extend([PathBuf::from("/usr/local/lib"), PathBuf::from("/usr/lib")]),
+        Some(n) => panic!("unsupported os: {n}"),
+        _ => panic!("unsupported os"),
+    };
+    dirs
+}
+
+fn target_os() -> Option<String> {
+    env::var("CARGO_CFG_TARGET_OS")
+        .ok()
+        .map(|s| s.to_lowercase())
 }
