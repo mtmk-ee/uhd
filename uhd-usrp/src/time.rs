@@ -24,7 +24,7 @@ use crate::error::TimeError;
 /// # Examples
 ///
 /// ```rust
-/// use uhd::TimeSpec;
+/// use uhd_usrp::{TimeSpec, timespec};
 ///
 /// assert_eq!(timespec!(0), TimeSpec::ZERO);
 /// assert_eq!(timespec!(0.5 s), TimeSpec::from_parts(0, 0.5));
@@ -34,7 +34,7 @@ use crate::error::TimeError;
 /// Variables can also be used:
 ///
 /// ```rust
-/// use uhd::TimeSpec;
+/// use uhd_usrp::{TimeSpec, timespec};
 ///
 /// let t = 0.5;
 /// assert_eq!(timespec!(t s), TimeSpec::from_parts(0, 0.5));
