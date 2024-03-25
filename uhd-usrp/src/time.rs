@@ -44,37 +44,37 @@ use crate::error::TimeError;
 #[macro_export]
 macro_rules! timespec {
     (0) => {{
-        TimeSpec::ZERO
+        $crate::TimeSpec::ZERO
     }};
     ($val:literal m) => {{
-        TimeSpec::from_secs_f64($val as f64 * 60.0)
+        $crate::TimeSpec::from_secs_f64($val as f64 * 60.0)
     }};
     ($val:literal s) => {{
-        TimeSpec::from_secs_f64($val as f64)
+        $crate::TimeSpec::from_secs_f64($val as f64)
     }};
     ($val:literal ms) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e3)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e3)
     }};
     ($val:literal us) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e6)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e6)
     }};
     ($val:literal ns) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e9)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e9)
     }};
     ($val:ident m) => {{
-        TimeSpec::from_secs_f64($val as f64 * 60.0)
+        $crate::TimeSpec::from_secs_f64($val as f64 * 60.0)
     }};
     ($val:ident s) => {{
-        TimeSpec::from_secs_f64($val as f64)
+        $crate::TimeSpec::from_secs_f64($val as f64)
     }};
     ($val:ident ms) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e3)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e3)
     }};
     ($val:ident us) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e6)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e6)
     }};
     ($val:ident ns) => {{
-        TimeSpec::from_secs_f64($val as f64 / 1e9)
+        $crate::TimeSpec::from_secs_f64($val as f64 / 1e9)
     }};
 }
 
