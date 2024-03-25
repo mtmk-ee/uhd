@@ -78,7 +78,7 @@ macro_rules! timespec {
     }};
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct TimeSpec {
     /// The number of full seconds.
     ///
