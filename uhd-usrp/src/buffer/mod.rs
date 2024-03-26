@@ -43,11 +43,11 @@ where
     }
 
     fn as_ptr(&self) -> *const *const S {
-        self.deref().as_ptr().cast()
+        (self as *const T).cast()
     }
 
     fn as_mut_ptr(&mut self) -> *mut *mut S {
-        self.deref_mut().as_mut_ptr().cast()
+        (self as *mut T).cast()
     }
 }
 
