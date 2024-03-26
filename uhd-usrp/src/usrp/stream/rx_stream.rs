@@ -89,7 +89,7 @@ where
         }
 
         let cpu_format = CString::new(T::name()).unwrap();
-        let otw_format = self.otw_format.map(|f| f.as_str()).unwrap_or("");
+        let otw_format = CString::new(self.otw_format.map(|f| f.as_str()).unwrap_or("")).unwrap();
         let args = CString::new(
             self.args
                 .iter()
