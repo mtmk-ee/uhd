@@ -90,6 +90,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_gain(None, args.gain)?
         .set_sample_rate(args.rate)?;
 
+    let config = usrp.rx_config(args.channel);
+    println!("Antenna: {}", config.antenna()?);
+    println!("Freq: {}", config.center_freq()?);
+    println!("Bandwidth: {}", config.bandwidth()?);
+    println!("Gain: {}", config.gain(None)?);
+    println!("Rate: {}", config.sample_rate()?);
+
     let (send, recv): (Sender<Vec<Complex32>>, Receiver<Vec<Complex32>>) = channel();
     let thr = std::thread::spawn(move || write_to_file(recv, args.file).unwrap());
 
