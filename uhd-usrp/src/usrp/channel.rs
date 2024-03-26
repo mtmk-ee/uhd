@@ -439,8 +439,8 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
         self.tune(
             &TuneRequest::new()
                 .center_freq(freq)
-                .rf_freq_unset()
-                .dsp_freq_unset(),
+                .rf_freq_auto()
+                .dsp_freq_auto(),
         )
     }
 
