@@ -1,4 +1,4 @@
-use std::ffi::CString;
+use std::ffi::CStr;
 
 use uhd_usrp_sys::uhd_error;
 
@@ -93,7 +93,7 @@ pub fn last_error_message() -> Result<String> {
     try_uhd!(unsafe {
         uhd_usrp_sys::uhd_get_last_error(message.as_mut_ptr().cast(), message.len())
     })?;
-    Ok(CString::new(message)
+    Ok(CStr::from_bytes_until_nul(&message)
         .or(Err(UhdError::Unknown))?
         .to_string_lossy()
         .into_owned())
