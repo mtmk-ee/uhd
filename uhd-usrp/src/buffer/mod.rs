@@ -51,6 +51,32 @@ where
     }
 }
 
+/// A zero-sized buffer. Useful for sending metadata without any samples, such
+/// as end of burst packets.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct EmptyBuf;
+
+impl<S> SampleBuffer<S> for EmptyBuf
+where
+    S: Sample,
+{
+    fn channels(&self) -> usize {
+        0
+    }
+
+    fn samples(&self) -> usize {
+        0
+    }
+
+    fn as_ptr(&self) -> *const *const S {
+        b"\0".as_ptr().cast()
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut *mut S {
+        panic!("cannot mutate empty buffer")
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::{Sample, SampleBuffer};
