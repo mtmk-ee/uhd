@@ -37,7 +37,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
     }
 
     pub fn antennas(&self) -> Result<Vec<String>> {
-        let mut names = FfiStringVec::new()?;
+        let mut names = FfiStringVec::new();
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_antennas,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_antennas,
@@ -50,7 +50,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 names.as_mut_ptr(),
             )
         })?;
-        names.to_vec()
+        Ok(names.to_vec())
     }
 
     pub fn bandwidth(&self) -> Result<f64> {
@@ -255,7 +255,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
     }
 
     pub fn lo_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_names,
@@ -268,7 +268,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn lo_source(&self, name: Option<&str>) -> Result<String> {
@@ -293,7 +293,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
 
     pub fn lo_sources(&self, name: Option<&str>) -> Result<Vec<String>> {
         let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_sources,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_sources,
@@ -307,7 +307,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn normalized_gain(&self) -> Result<f64> {
@@ -365,7 +365,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
     }
 
     pub fn sensor_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_sensor_names,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_sensor_names,
@@ -378,7 +378,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn sensor_value(&self, name: &str) -> Result<SensorValue> {

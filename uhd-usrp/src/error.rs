@@ -88,15 +88,15 @@ macro_rules! try_uhd {
 }
 pub(crate) use try_uhd;
 
-pub fn last_error_message() -> Result<String> {
+pub fn last_error_message() -> String {
     let mut message: [u8; 128] = [0; 128];
-    try_uhd!(unsafe {
+    unsafe {
         uhd_usrp_sys::uhd_get_last_error(message.as_mut_ptr().cast(), message.len())
-    })?;
-    Ok(CStr::from_bytes_until_nul(&message)
-        .or(Err(UhdError::Unknown))?
+    };
+    CStr::from_bytes_until_nul(&message)
+        .unwrap()
         .to_string_lossy()
-        .into_owned())
+        .into_owned()
 }
 
 #[derive(thiserror::Error, Clone, Copy, Debug, PartialEq, Eq)]

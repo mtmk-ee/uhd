@@ -2,7 +2,7 @@ use std::ptr::addr_of_mut;
 
 use num_enum::TryFromPrimitive;
 
-use crate::{error::try_uhd, ffi::OwnedHandle, Result, TimeSpec, UhdError};
+use crate::{ffi::OwnedHandle, Result, TimeSpec, UhdError};
 
 pub struct TxMetadataBuilder {
     inner: TxMetadata,
@@ -150,9 +150,9 @@ impl RxMetadata {
     pub fn error_code(&self) -> Result<RxErrorCode> {
         let mut result =
             uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_NONE;
-        try_uhd!(unsafe {
+        unsafe {
             uhd_usrp_sys::uhd_rx_metadata_error_code(self.handle.as_mut_ptr(), addr_of_mut!(result))
-        })?;
+        };
         Ok(RxErrorCode::try_from_primitive(result).or(Err(UhdError::Unknown))?)
     }
 
