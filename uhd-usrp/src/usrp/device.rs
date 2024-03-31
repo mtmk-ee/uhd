@@ -52,7 +52,15 @@ impl Usrp {
         Motherboard::new(self, mboard)
     }
 
-    pub fn rx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
+    pub fn n_mboards(&self) -> Result<usize> {
+        let mut mboards = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_num_mboards(self.handle.as_mut_ptr(), addr_of_mut!(mboards))
+        })?;
+        Ok(mboards)
+    }
+
+    pub fn rx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
         ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
     }
 
@@ -107,7 +115,7 @@ impl Usrp {
         Ok(channels)
     }
 
-    pub fn tx_config<'a>(&'a mut self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
+    pub fn tx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
         ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
     }
 
