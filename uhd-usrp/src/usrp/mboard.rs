@@ -5,6 +5,8 @@ use crate::{
     try_uhd, Result, SensorValue, TimeSpec, Usrp,
 };
 
+use super::subdev_spec::SubdevSpec;
+
 pub struct Motherboard<'a> {
     usrp: &'a Usrp,
     mboard: usize,
@@ -129,6 +131,18 @@ impl<'a> Motherboard<'a> {
         result.into_string()
     }
 
+    pub fn rx_subdev_spec(&self) -> Result<SubdevSpec> {
+        let spec = SubdevSpec::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_rx_subdev_spec(
+                self.usrp.handle().as_mut_ptr(),
+                self.mboard,
+                spec.as_handle().as_mut_ptr(),
+            )
+        })?;
+        Ok(spec)
+    }
+
     pub fn sensor_names(&self) -> Result<Vec<String>> {
         let mut vec = FfiStringVec::new()?;
         try_uhd!(unsafe {
@@ -181,6 +195,18 @@ impl<'a> Motherboard<'a> {
         Ok(())
     }
 
+    pub fn set_rx_subdev_str(&mut self, subdev: &str) -> Result<()> {
+        let sudev = SubdevSpec::from_str(subdev);
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_rx_subdev_spec(
+                self.usrp.handle().as_mut_ptr(),
+                sudev.as_handle().as_mut_ptr(),
+                self.mboard,
+            )
+        })?;
+        Ok(())
+    }
+
     pub fn set_time(&self, time: TimeSpec) -> Result<()> {
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_set_time_now(
@@ -222,6 +248,18 @@ impl<'a> Motherboard<'a> {
             uhd_usrp_sys::uhd_usrp_set_time_source_out(
                 self.usrp.handle().as_mut_ptr(),
                 en,
+                self.mboard,
+            )
+        })?;
+        Ok(())
+    }
+
+    pub fn set_tx_subdev_str(&mut self, subdev: &str) -> Result<()> {
+        let sudev = SubdevSpec::from_str(subdev);
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_set_tx_subdev_spec(
+                self.usrp.handle().as_mut_ptr(),
+                sudev.as_handle().as_mut_ptr(),
                 self.mboard,
             )
         })?;
@@ -277,6 +315,18 @@ impl<'a> Motherboard<'a> {
             )
         })?;
         vec.to_vec()
+    }
+
+    pub fn tx_subdev_spec(&self) -> Result<SubdevSpec> {
+        let spec = SubdevSpec::new();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_tx_subdev_spec(
+                self.usrp.handle().as_mut_ptr(),
+                self.mboard,
+                spec.as_handle().as_mut_ptr(),
+            )
+        })?;
+        Ok(spec)
     }
 }
 

@@ -97,19 +97,24 @@ impl MetaRange {
 }
 
 pub struct HardwareInfo {
-    mboard_id: &'static str,
-    mboard_name: &'static str,
-    mboard_serial: &'static str,
-    dboard_id: &'static str,
-    dboard_subdev_name: &'static str,
-    dboard_subdev_spec: &'static str,
-    dboard_serial: &'static str,
-    dboard_antenna: &'static str,
+    mboard_id: String,
+    mboard_name: String,
+    mboard_serial: String,
+    dboard_id: String,
+    dboard_subdev_name: String,
+    dboard_subdev_spec: String,
+    dboard_serial: String,
+    dboard_antenna: String,
 }
 
 impl HardwareInfo {
     pub(crate) fn from_rx_raw(info: &uhd_usrp_sys::uhd_usrp_rx_info_t) -> Result<Self> {
-        let fetch = |s| unsafe { CStr::from_ptr(s).to_str().or(Err(UhdError::Unknown)) };
+        let fetch = |s| unsafe {
+            CStr::from_ptr(s)
+                .to_str()
+                .or(Err(UhdError::Unknown))
+                .map(ToString::to_string)
+        };
         Ok(Self {
             mboard_id: fetch(info.mboard_id)?,
             mboard_name: fetch(info.mboard_name)?,
@@ -123,7 +128,12 @@ impl HardwareInfo {
     }
 
     pub(crate) fn from_tx_raw(info: &uhd_usrp_sys::uhd_usrp_tx_info_t) -> Result<Self> {
-        let fetch = |s| unsafe { CStr::from_ptr(s).to_str().or(Err(UhdError::Unknown)) };
+        let fetch = |s| unsafe {
+            CStr::from_ptr(s)
+                .to_str()
+                .or(Err(UhdError::Unknown))
+                .map(ToString::to_string)
+        };
         Ok(Self {
             mboard_id: fetch(info.mboard_id)?,
             mboard_name: fetch(info.mboard_name)?,
@@ -137,37 +147,34 @@ impl HardwareInfo {
     }
 
     pub fn mboard_id(&self) -> &str {
-        self.mboard_id
+        &self.mboard_id
     }
 
     pub fn mboard_name(&self) -> &str {
-        self.mboard_name
+        &self.mboard_name
     }
 
     pub fn mboard_serial(&self) -> &str {
-        self.mboard_serial
+        &self.mboard_serial
     }
 
-    pub fn rx_antenna(&self) -> &str {
-        self.dboard_antenna
+    pub fn dboard_antenna(&self) -> &str {
+        &self.dboard_antenna
     }
 
-    pub fn rx_id(&self) -> &str {
-        self.dboard_id
+    pub fn dboard_id(&self) -> &str {
+        &self.dboard_id
     }
 
-    pub fn rx_serial(&self) -> &str {
-        self.dboard_serial
+    pub fn dboard_serial(&self) -> &str {
+        &self.dboard_serial
     }
 
-    pub fn rx_subdev_name(&self) -> &str {
-        self.dboard_subdev_name
+    pub fn dboard_subdev_name(&self) -> &str {
+        &self.dboard_subdev_name
     }
 
-    pub fn rx_subdev_spec(&self) -> &str {
-        self.dboard_subdev_spec
+    pub fn dboard_subdev_spec(&self) -> &str {
+        &self.dboard_subdev_spec
     }
 }
-
-
-

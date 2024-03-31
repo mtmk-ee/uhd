@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::{try_uhd, Result, UhdError};
+pub use uhd_usrp_sys::*;
 
 pub(crate) struct FfiString<const N: usize> {
     s: [u8; N],
@@ -96,6 +97,7 @@ impl Drop for FfiStringVec {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct OwnedHandle<T> {
     handle: *mut T,
     free: unsafe extern "C" fn(*mut *mut T) -> u32,
