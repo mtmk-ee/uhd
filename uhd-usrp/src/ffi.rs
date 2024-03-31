@@ -39,10 +39,10 @@ pub(crate) struct FfiStringVec {
 }
 
 impl FfiStringVec {
-    pub fn new() -> Result<FfiStringVec> {
+    pub fn new() -> FfiStringVec {
         let mut handle = std::ptr::null_mut();
-        try_uhd!(unsafe { uhd_usrp_sys::uhd_string_vector_make(addr_of_mut!(handle)) })?;
-        Ok(Self { handle })
+        unsafe { uhd_usrp_sys::uhd_string_vector_make(addr_of_mut!(handle)) };
+        Self { handle }
     }
 
     pub fn as_ptr(&self) -> *const uhd_usrp_sys::uhd_string_vector_handle {
@@ -53,20 +53,19 @@ impl FfiStringVec {
         addr_of_mut!(self.handle)
     }
 
-    pub fn push(&mut self, value: &str) -> Result<()> {
+    pub fn push(&mut self, value: &str) {
         let value = CString::new(value).unwrap();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_string_vector_push_back(addr_of_mut!(self.handle), value.as_ptr())
-        })?;
-        Ok(())
+        unsafe {
+            uhd_usrp_sys::uhd_string_vector_push_back(addr_of_mut!(self.handle), value.as_ptr());
+        }
     }
 
-    pub fn len(&self) -> Result<usize> {
+    pub fn len(&self) -> usize {
         let mut value = 0;
-        try_uhd!(unsafe {
+        unsafe {
             uhd_usrp_sys::uhd_string_vector_size(self.handle, addr_of_mut!(value))
-        })?;
-        Ok(value)
+        };
+        value
     }
 
     pub fn get(&self, index: usize) -> Option<String> {
@@ -78,14 +77,12 @@ impl FfiStringVec {
         s.into_string().ok()
     }
 
-    pub fn to_vec(&self) -> Result<Vec<String>> {
+    pub fn to_vec(&self) -> Vec<String> {
         let mut result = vec![];
-        for i in 0..self.len()? {
-            if let Some(v) = self.get(i) {
-                result.push(v);
-            }
+        for i in 0..self.len() {
+                result.push(self.get(i).unwrap());
         }
-        Ok(result)
+        result
     }
 }
 

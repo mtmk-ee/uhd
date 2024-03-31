@@ -31,7 +31,7 @@ impl<'a> Motherboard<'a> {
     }
 
     pub fn clock_sources(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_clock_sources(
                 self.usrp.handle().as_mut_ptr(),
@@ -39,7 +39,7 @@ impl<'a> Motherboard<'a> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn dboard_eeprom(&self, unit: &str, slot: &str) -> Result<DaughterboardEeprom> {
@@ -77,7 +77,7 @@ impl<'a> Motherboard<'a> {
     }
 
     pub fn gpio_bank_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_gpio_banks(
                 self.usrp.handle().as_mut_ptr(),
@@ -85,7 +85,7 @@ impl<'a> Motherboard<'a> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn gpio_bank(&self, name: &str) -> GpioBank {
@@ -144,7 +144,7 @@ impl<'a> Motherboard<'a> {
     }
 
     pub fn sensor_names(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_mboard_sensor_names(
                 self.usrp.handle().as_mut_ptr(),
@@ -152,7 +152,7 @@ impl<'a> Motherboard<'a> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn sensor_value(&self, name: &str) -> Result<SensorValue> {
@@ -306,7 +306,7 @@ impl<'a> Motherboard<'a> {
     }
 
     pub fn time_sources(&self) -> Result<Vec<String>> {
-        let mut vec = FfiStringVec::new()?;
+        let mut vec = FfiStringVec::new();
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_usrp_get_time_sources(
                 self.usrp.handle().as_mut_ptr(),
@@ -314,7 +314,7 @@ impl<'a> Motherboard<'a> {
                 vec.as_mut_ptr(),
             )
         })?;
-        vec.to_vec()
+        Ok(vec.to_vec())
     }
 
     pub fn tx_subdev_spec(&self) -> Result<SubdevSpec> {
@@ -385,7 +385,7 @@ impl MotherboardEeprom {
         Self { handle }
     }
 
-    pub fn value(&self, key: &str) -> Result<String> {
+    pub fn value(&self, key: &str) -> Option<String> {
         let key = CString::new(key).unwrap();
         let mut value = FfiString::<32>::new();
         try_uhd!(unsafe {
@@ -395,21 +395,21 @@ impl MotherboardEeprom {
                 value.as_mut_ptr(),
                 value.max_chars(),
             )
-        })?;
-        value.into_string()
+        })
+        .ok();
+        value.into_string().ok()
     }
 
-    pub fn set_value(&self, key: &str, value: &str) -> Result<()> {
+    pub fn set_value(&self, key: &str, value: &str) {
         let key = CString::new(key).unwrap();
         let value = CString::new(value).unwrap();
-        try_uhd!(unsafe {
+        unsafe {
             uhd_usrp_sys::uhd_mboard_eeprom_set_value(
                 self.handle.as_mut_ptr(),
                 key.as_ptr(),
                 value.as_ptr(),
-            )
-        })?;
-        Ok(())
+            );
+        }
     }
 }
 
@@ -418,57 +418,53 @@ pub struct DaughterboardEeprom {
 }
 
 impl DaughterboardEeprom {
-    pub fn new() -> Result<Self> {
-        Ok(Self {
+    pub fn new() -> Self {
+        Self {
             handle: OwnedHandle::new(
                 uhd_usrp_sys::uhd_dboard_eeprom_make,
                 uhd_usrp_sys::uhd_dboard_eeprom_free,
-            )?,
-        })
+            ).unwrap(),
+        }
     }
 
     pub(crate) fn from_handle(handle: OwnedHandle<uhd_usrp_sys::uhd_dboard_eeprom_t>) -> Self {
         Self { handle }
     }
 
-    pub fn id(&self) -> Result<String> {
+    pub fn id(&self) -> String {
         let mut id = FfiString::<16>::new();
-        try_uhd!(unsafe {
+        unsafe {
             uhd_usrp_sys::uhd_dboard_eeprom_get_id(
                 self.handle.as_mut_ptr(),
                 id.as_mut_ptr(),
                 id.max_chars(),
             )
-        })?;
-        id.into_string()
+        };
+        id.into_string().unwrap()
     }
 
-    pub fn set_id(&self, id: &str) -> Result<()> {
+    pub fn set_id(&self, id: &str) {
         let id = CString::new(id).unwrap();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_dboard_eeprom_set_id(self.handle.as_mut_ptr(), id.as_ptr())
-        })?;
-        Ok(())
+        unsafe { uhd_usrp_sys::uhd_dboard_eeprom_set_id(self.handle.as_mut_ptr(), id.as_ptr()) };
     }
 
-    pub fn serial_number(&self) -> Result<String> {
+    pub fn serial_number(&self) -> String {
         let mut id = FfiString::<16>::new();
-        try_uhd!(unsafe {
+        unsafe {
             uhd_usrp_sys::uhd_dboard_eeprom_get_serial(
                 self.handle.as_mut_ptr(),
                 id.as_mut_ptr(),
                 id.max_chars(),
             )
-        })?;
-        id.into_string()
+        };
+        id.into_string().unwrap()
     }
 
-    pub fn set_serial_number(&self, serial: &str) -> Result<()> {
+    pub fn set_serial_number(&self, serial: &str) {
         let serial = CString::new(serial).unwrap();
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_dboard_eeprom_set_serial(self.handle.as_mut_ptr(), serial.as_ptr())
-        })?;
-        Ok(())
+        unsafe {
+            uhd_usrp_sys::uhd_dboard_eeprom_set_serial(self.handle.as_mut_ptr(), serial.as_ptr());
+        }
     }
 
     pub fn revision(&self) -> Result<i32> {
@@ -482,10 +478,9 @@ impl DaughterboardEeprom {
         Ok(value)
     }
 
-    pub fn set_revision(&self, value: i32) -> Result<i32> {
-        try_uhd!(unsafe {
+    pub fn set_revision(&self, value: i32) {
+        unsafe {
             uhd_usrp_sys::uhd_dboard_eeprom_set_revision(self.handle.as_mut_ptr(), value)
-        })?;
-        Ok(value)
+        };
     }
 }
