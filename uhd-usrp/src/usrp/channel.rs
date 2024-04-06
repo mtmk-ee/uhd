@@ -19,7 +19,7 @@ pub struct ChannelConfiguration<'usrp, const D: usize> {
 
 impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
     pub fn antenna(&self) -> Result<String> {
-        let mut name = FfiString::<16>::new();
+        let mut name = FfiString::with_capacity(16);
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_antenna,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_antenna,
@@ -171,7 +171,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
             uhd_usrp_sys::uhd_meta_range_make,
             uhd_usrp_sys::uhd_meta_range_free,
         )?;
-        let mut name = FfiString::<64>::new();
+        let mut name = FfiString::with_capacity(32);
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_gain_range,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_gain_range,
@@ -216,6 +216,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         }
     }
 
+    /// Returns true if the currently selected LO is being exported.
     pub fn lo_export_enabled(&self, name: Option<&str>) -> Result<bool> {
         let name = CString::new(name.unwrap_or("")).unwrap();
         let mut result = false;
@@ -235,6 +236,10 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         Ok(result)
     }
 
+    /// Get the current RX LO frequency (Advanced).
+    ///
+    /// If the channel does not have independently configurable LOs,
+    /// the current RF frequency will be returned.
     pub fn lo_freq(&self, name: Option<&str>) -> Result<f64> {
         let name = CString::new(name.unwrap_or("")).unwrap();
         let mut result = std::mem::MaybeUninit::uninit();
@@ -254,6 +259,12 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         .and_then(|_| Ok(unsafe { result.assume_init() }))
     }
 
+    /// Get a list of possible LO stage names
+    ///
+    /// Example: On the TwinRX, this will return "LO1", "LO2".
+    /// These names can are used in other LO-related API calls, so this function can be used for automatically enumerating LO stages.
+    /// An empty return value doesn't mean there are no LOs, it means that this radio does not have an LO API implemented,
+    /// and typically means the LOs have no direct way of being controlled other than setting the frequency.
     pub fn lo_names(&self) -> Result<Vec<String>> {
         let mut vec = FfiStringVec::new();
         let f = match D {
@@ -271,9 +282,12 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         Ok(vec.to_vec())
     }
 
+    /// Get the currently selected LO source.
+    ///
+    /// Channels without controllable LO sources will always return "internal".
     pub fn lo_source(&self, name: Option<&str>) -> Result<String> {
         let name = CString::new(name.unwrap_or("")).unwrap();
-        let mut buf = FfiString::<32>::new();
+        let mut buf = FfiString::with_capacity(32);
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_lo_source,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_lo_source,
@@ -291,6 +305,11 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
         buf.into_string()
     }
 
+    /// Get a list of possible LO sources.
+    ///
+    /// Channels which do not have controllable LO sources will return "internal".
+    /// Typical values are "internal" and "external", although the TwinRX, for example, has more options, such as "companion".
+    /// These options are device-specific, so consult the individual device manual pages for details.
     pub fn lo_sources(&self, name: Option<&str>) -> Result<Vec<String>> {
         let name = CString::new(name.unwrap_or("")).unwrap();
         let mut vec = FfiStringVec::new();
@@ -404,7 +423,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
     }
 
     pub fn subdev_name(&self) -> Result<String> {
-        let mut name = FfiString::<64>::new();
+        let mut name = FfiString::with_capacity(64);
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_get_rx_subdev_name,
             TX_DIR => uhd_usrp_sys::uhd_usrp_get_tx_subdev_name,
@@ -476,12 +495,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
     }
 
     pub fn set_center_freq(self, freq: f64) -> Result<Self> {
-        self.tune(
-            &TuneRequest::new()
-                .center_freq(freq)
-                .rf_freq_auto()
-                .dsp_freq_auto(),
-        )
+        self.tune(&TuneRequest::new(freq).rf_freq_auto().dsp_freq_auto())
     }
 
     pub fn set_gain(self, name: Option<&str>, gain: f64) -> Result<Self> {
@@ -544,7 +558,7 @@ impl<'usrp, const D: usize> ChannelConfigurationBuilder<'usrp, D> {
 
     pub fn tune(self, req: &TuneRequest) -> Result<Self> {
         let req = req.inner();
-        let mut result = TuneResult::new();
+        let mut result = TuneResult::default();
         let f = match D {
             RX_DIR => uhd_usrp_sys::uhd_usrp_set_rx_freq,
             TX_DIR => uhd_usrp_sys::uhd_usrp_set_tx_freq,

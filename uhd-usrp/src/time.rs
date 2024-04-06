@@ -93,8 +93,16 @@ pub struct TimeSpec {
 
 impl TimeSpec {
     /// A special value that signifies immediate execution.
+    ///
+    /// It can also just be used as a zero value.
     pub const ZERO: TimeSpec = TimeSpec::from_parts_unchecked(0, 0.0);
+    /// The largest possible value.
+    ///
+    /// It's `i64::MAX` seconds plus the largest fractional second less than 1.
     pub const MAX: TimeSpec = TimeSpec::from_parts_unchecked(i64::MAX, 1.0 - f64::EPSILON);
+    /// The smallest possible value.
+    ///
+    /// It's `i64::MIN` seconds.
     pub const MIN: TimeSpec = TimeSpec::from_parts_unchecked(i64::MIN, 0.0);
 
     /// Create a new TimeSpec using the number of full and fractional seconds.
@@ -162,30 +170,44 @@ impl TimeSpec {
         Self::from_parts(secs_full, ticks_frac / tick_rate)
     }
 
+    /// Create a new TimeSpec from some number of seconds.
     pub fn from_secs(secs: i64) -> Self {
         Self::from_parts(secs, 0.0)
     }
 
+    /// Create a new TimeSpec from some number of seconds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of seconds is greater than [`TimeSpec::MAX`]
     pub fn from_secs_f32(secs: f32) -> Self {
         Self::from_parts(0, secs as f64)
     }
 
+    /// Create a new TimeSpec from some number of seconds.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of seconds is greater than [`TimeSpec::MAX`]
     pub fn from_secs_f64(secs: f64) -> Self {
         Self::from_parts(0, secs)
     }
 
+    /// Create a new TimeSpec from some number of milliseconds.
     pub fn from_millis(millis: i64) -> Self {
         let full = millis / 1_000;
         let frac = (millis % 1_000) as f64 / 1_000.0;
         Self::from_parts(full, frac)
     }
 
+    /// Create a new TimeSpec from some number of microseconds.
     pub fn from_micros(micros: i64) -> Self {
         let full = micros / 1_000_000;
         let frac = (micros % 1_000_000) as f64 / 1_000_000.0;
         Self::from_parts(full, frac)
     }
 
+    /// Create a new TimeSpec from some number of nanoseconds.
     pub fn from_nanos(nanos: i64) -> Self {
         let full = nanos / 1_000_000_000;
         let frac = (nanos % 1_000_000_000) as f64 / 1_000_000_000.0;

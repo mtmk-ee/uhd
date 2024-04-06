@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+/// Log levels are used to filter messages based on level of severity.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum LogLevel {
@@ -10,21 +11,6 @@ pub enum LogLevel {
     Error = 4,
     Fatal = 5,
     Off = 6,
-}
-
-impl LogLevel {
-    fn from_env_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "trace" => Some(LogLevel::Trace),
-            "debug" => Some(LogLevel::Debug),
-            "info" => Some(LogLevel::Info),
-            "warning" => Some(LogLevel::Warning),
-            "error" => Some(LogLevel::Error),
-            "fatal" => Some(LogLevel::Fatal),
-            "off" => Some(LogLevel::Off),
-            _ => None,
-        }
-    }
 }
 
 impl ToString for LogLevel {
@@ -51,6 +37,9 @@ pub fn set_fastpath_logging_enabled(en: bool) {
     std::env::set_var("UHD_LOG_FASTPATH_DISABLE", if en { "OFF" } else { "ON" });
 }
 
+/// Check if fastpath logging is enabled according to the corresponding environment variable.
+///
+/// This may not be accurate depending on how UHD was compiled.
 pub fn fastpath_logging_enabled() -> bool {
     let var = std::env::var("UHD_LOG_FASTPATH_DISABLE").unwrap_or("OFF".to_owned());
     match var.as_str() {
@@ -64,17 +53,9 @@ pub fn set_global_log_level(level: LogLevel) {
     std::env::set_var("UHD_LOG_LEVEL", level.to_string());
 }
 
-pub fn global_log_level() -> LogLevel {
-    log_level_from_var("UHD_LOG_LEVEL")
-}
-
 /// Set the minimum log level for files.
 pub fn set_file_log_level(level: LogLevel) {
     std::env::set_var("UHD_LOG_FILE_LEVEL", level.to_string());
-}
-
-pub fn file_log_level() -> LogLevel {
-    log_level_from_var("UHD_LOG_FILE_LEVEL")
 }
 
 /// Set the minimum log level for the console.
@@ -82,11 +63,7 @@ pub fn set_console_log_level(level: LogLevel) {
     std::env::set_var("UHD_LOG_CONSOLE_LEVEL", level.to_string());
 }
 
-pub fn console_log_level() -> LogLevel {
-    log_level_from_var("UHD_LOG_CONSOLE_LEVEL")
-}
-
-/// Set the minimum log level for the console.
+/// Set the log file path.
 pub fn set_log_file(path: Option<impl AsRef<Path>>) {
     let path = path
         .as_ref()
@@ -98,9 +75,4 @@ pub fn set_log_file(path: Option<impl AsRef<Path>>) {
 /// Set the minimum log level for the console.
 pub fn log_file() -> Option<PathBuf> {
     std::env::var("UHD_LOG_FILE").ok().map(|p| PathBuf::from(p))
-}
-
-fn log_level_from_var(var_name: &str) -> LogLevel {
-    let var = std::env::var(var_name).unwrap_or("".to_owned());
-    LogLevel::from_env_str(&var).unwrap_or(LogLevel::Debug)
 }

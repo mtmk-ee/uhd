@@ -2,6 +2,18 @@ use crate::Result;
 
 use super::Usrp;
 
+/// Arguments for specifying a USRP available to the system.
+///
+/// # Examples
+///
+/// ```no_run
+/// use uhd_usrp::DeviceArgs;
+///
+/// let device = DeviceArgs::new()
+///     .addr("192.168.10.4")
+///     .open()
+///     .unwrap();
+/// ```
 #[derive(Clone, Debug, Default)]
 pub struct DeviceArgs {
     addr: Option<String>,

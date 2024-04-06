@@ -4,6 +4,7 @@ use uhd_usrp_sys::uhd_error;
 
 pub type Result<T, E = UhdError> = std::result::Result<T, E>;
 
+/// An error that occurred during a UHD operation.
 #[derive(thiserror::Error, Debug, Clone)]
 #[repr(u32)]
 pub enum UhdError {
@@ -90,9 +91,7 @@ pub(crate) use try_uhd;
 
 pub fn last_error_message() -> String {
     let mut message: [u8; 128] = [0; 128];
-    unsafe {
-        uhd_usrp_sys::uhd_get_last_error(message.as_mut_ptr().cast(), message.len())
-    };
+    unsafe { uhd_usrp_sys::uhd_get_last_error(message.as_mut_ptr().cast(), message.len()) };
     CStr::from_bytes_until_nul(&message)
         .unwrap()
         .to_string_lossy()

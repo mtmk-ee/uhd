@@ -15,7 +15,7 @@ impl SensorValue {
     }
 
     pub fn name(&self) -> String {
-        let mut s = FfiString::<32>::new();
+        let mut s = FfiString::with_capacity(32);
         unsafe {
             uhd_usrp_sys::uhd_sensor_value_name(
                 self.handle.as_mut_ptr(),
@@ -51,7 +51,7 @@ impl SensorValue {
     }
 
     pub fn to_pp_string(&self) -> Result<String> {
-        let mut value = FfiString::<64>::new();
+        let mut value = FfiString::with_capacity(64);
         try_uhd!(unsafe {
             uhd_usrp_sys::uhd_sensor_value_to_pp_string(
                 self.handle.as_mut_ptr(),
@@ -63,7 +63,7 @@ impl SensorValue {
     }
 
     pub fn to_string(&self) -> String {
-        let mut value = FfiString::<64>::new();
+        let mut value = FfiString::with_capacity(64);
         unsafe {
             uhd_usrp_sys::uhd_sensor_value_value(
                 self.handle.as_mut_ptr(),
@@ -75,14 +75,14 @@ impl SensorValue {
     }
 
     pub fn unit(&self) -> Result<String> {
-        let mut s = FfiString::<16>::new();
+        let mut value = FfiString::with_capacity(64);
         unsafe {
             uhd_usrp_sys::uhd_sensor_value_unit(
                 self.handle.as_mut_ptr(),
-                s.as_mut_ptr(),
-                s.max_chars(),
+                value.as_mut_ptr(),
+                value.max_chars(),
             )
         };
-        s.into_string()
+        value.into_string()
     }
 }
