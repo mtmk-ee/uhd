@@ -5,6 +5,10 @@ use crate::{
     try_uhd, Result,
 };
 
+// Sensor values are stored by UHD as C++ `std::string`s.
+// This means that conversions are parsing problems.
+
+/// A sensor value stores a sensor reading as a string with unit and data type.
 pub struct SensorValue {
     handle: OwnedHandle<uhd_usrp_sys::uhd_sensor_value_t>,
 }
@@ -14,6 +18,7 @@ impl SensorValue {
         Self { handle }
     }
 
+    /// The name of the sensor this value is associated with.
     pub fn name(&self) -> String {
         let mut s = FfiString::with_capacity(32);
         unsafe {

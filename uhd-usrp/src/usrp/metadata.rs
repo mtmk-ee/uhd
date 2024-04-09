@@ -35,6 +35,9 @@ impl TxMetadataBuilder {
     }
 }
 
+/// TX metadata structure for describing IF data.
+///
+/// Includes time specification, and start and stop burst flags.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TxMetadata {
     time_spec: Option<TimeSpec>,
@@ -43,6 +46,13 @@ pub struct TxMetadata {
 }
 
 impl TxMetadata {
+
+    /// Create a new TX metadata struct.
+    ///
+    /// Defaults are:
+    /// - `time_spec: None``
+    /// - `start_of_burst: false``
+    /// - `end_of_burst: false`
     pub fn new() -> Self {
         Self {
             time_spec: None,
@@ -51,26 +61,36 @@ impl TxMetadata {
         }
     }
 
+    /// Get the time the first sample should be sent.
+    ///
+    /// If `None`, the first sample will be sent as soon as possible.
     pub fn time_spec(&self) -> Option<TimeSpec> {
         self.time_spec
     }
 
+    /// Get the start of burst flag.
     pub fn start_of_burst(&self) -> bool {
         self.start_of_burst
     }
 
+    /// Get the end of burst flag.
     pub fn end_of_burst(&self) -> bool {
         self.end_of_burst
     }
 
+    /// Set when to send the first sample.
+    ///
+    /// If `None`, the first sample will be sent as soon as possible.
     pub fn set_time_spec(&mut self, time_spec: Option<TimeSpec>) {
         self.time_spec = time_spec;
     }
 
+    /// End of burst should be set for the last packet in a chain.
     pub fn set_end_of_burst(&mut self, eob: bool) {
         self.end_of_burst = eob;
     }
 
+    /// Start of burst should be set to true for the first packet in a chain.
     pub fn set_start_of_burst(&mut self, sob: bool) {
         self.start_of_burst = sob;
     }

@@ -22,6 +22,7 @@ pub enum UhdError {
     Io = uhd_error::UHD_ERROR_IO as u32,
     #[error("system-related error")]
     Os = uhd_error::UHD_ERROR_OS as u32,
+    /// An assertion statement failed.
     #[error("assertion failed")]
     Assertion = uhd_error::UHD_ERROR_ASSERTION as u32,
     #[error("key or index is invalid")]
@@ -32,6 +33,7 @@ pub enum UhdError {
     Value = uhd_error::UHD_ERROR_VALUE as u32,
     #[error("runtime error")]
     Runtime = uhd_error::UHD_ERROR_RUNTIME as u32,
+    /// An error occurred outside the UHD library.
     #[error("external error")]
     Environment = uhd_error::UHD_ERROR_ENVIRONMENT as u32,
     #[error("system error")]

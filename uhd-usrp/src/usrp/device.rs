@@ -15,7 +15,7 @@ use super::{
 
 /// The entry point for interacting with a connected USRP.
 ///
-/// A USRP instance can be opened using once of the following methods:
+/// A USRP instance can be opened using one of the following methods:
 /// - `Usrp::open_any()` to open any recognized USRP
 /// - `Usrp::open_with_args()` and a typical "key=value"` string
 /// - `Usrp::open()` and a `DeviceArgs` struct for the most flexibility.

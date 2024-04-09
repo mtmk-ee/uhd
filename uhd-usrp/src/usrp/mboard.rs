@@ -540,16 +540,17 @@ impl DaughterboardEeprom {
         Self { handle }
     }
 
-    pub fn id(&self) -> String {
+    /// The ID for the daughterboard type.
+    pub fn id(&self) -> Result<String> {
         let mut id = FfiString::with_capacity(16);
-        unsafe {
+        try_uhd!(unsafe {
             uhd_usrp_sys::uhd_dboard_eeprom_get_id(
                 self.handle.as_mut_ptr(),
                 id.as_mut_ptr(),
                 id.max_chars(),
             )
-        };
-        id.into_string().unwrap()
+        })?;
+        Ok(id.into_string().unwrap())
     }
 
     pub fn set_id(&self, id: &str) {
@@ -557,16 +558,17 @@ impl DaughterboardEeprom {
         unsafe { uhd_usrp_sys::uhd_dboard_eeprom_set_id(self.handle.as_mut_ptr(), id.as_ptr()) };
     }
 
-    pub fn serial_number(&self) -> String {
+    /// The unique serial number.
+    pub fn serial_number(&self) -> Result<String> {
         let mut id = FfiString::with_capacity(16);
-        unsafe {
+        try_uhd!(unsafe {
             uhd_usrp_sys::uhd_dboard_eeprom_get_serial(
                 self.handle.as_mut_ptr(),
                 id.as_mut_ptr(),
                 id.max_chars(),
             )
-        };
-        id.into_string().unwrap()
+        })?;
+        Ok(id.into_string().unwrap())
     }
 
     pub fn set_serial_number(&self, serial: &str) {
@@ -576,6 +578,7 @@ impl DaughterboardEeprom {
         }
     }
 
+    /// The hardware revision number.
     pub fn revision(&self) -> Result<i32> {
         let mut value = 0;
         try_uhd!(unsafe {
