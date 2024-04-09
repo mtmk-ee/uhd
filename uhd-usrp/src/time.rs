@@ -78,6 +78,17 @@ macro_rules! timespec {
     }};
 }
 
+/// A TimeSpec holds a seconds and a fractional seconds time value.
+///
+/// Depending upon usage, a TimeSpec can represent absolute times, relative times,
+/// or time differences (between absolute times).
+///
+/// The TimeSpec provides clock-domain independent time storage, but can convert
+/// fractional seconds to/from clock-domain specific units.
+///
+/// The fractional seconds are stored as double precision floating point. This gives
+/// the fractional seconds enough precision to unambiguously specify a clock-tick/sample-count
+/// up to rates of several petahertz.
 #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
 pub struct TimeSpec {
     /// The number of full seconds.
