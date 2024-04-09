@@ -2,9 +2,16 @@ use std::{ffi::CStr, ptr::addr_of_mut};
 
 use crate::{ffi::OwnedHandle, try_uhd, Result, UhdError};
 
+
+/// A range object describes a set of discrete values of the form:
+/// `y = start + step*n`, where `n` is an integer between `0` and `(stop - start)/step`.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Range {
+    /// The minimum value for this range.
     pub start: f64,
+    /// The maximum value for this range.
     pub stop: f64,
+    /// The step size for this range.
     pub step: f64,
 }
 
@@ -66,6 +73,9 @@ impl MetaRange {
         })
     }
 
+    /// Clip the target value so that it lies within one of the ranges.
+    ///
+    /// If `clip_step` is true, clip to steps as well.
     pub fn clip(&self, value: f64, clip_step: bool) -> Result<f64> {
         let mut result = 0.0;
         try_uhd!(unsafe {
@@ -83,14 +93,17 @@ impl MetaRange {
         &self.ranges
     }
 
+    /// Get the overall start (minimum) start value for this range.
     pub fn start(&self) -> f64 {
         self.start
     }
 
+    /// Get the overall step size for this range.
     pub fn step(&self) -> f64 {
         self.step
     }
 
+    /// Get the overall stop (maximum) value for this range.
     pub fn stop(&self) -> f64 {
         self.stop
     }

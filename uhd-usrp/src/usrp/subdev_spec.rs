@@ -11,6 +11,10 @@ pub enum SubdevSpecParseError {
     InvalidFormat(String),
 }
 
+/// A pair of daughterboard and subdevice names.
+///
+/// A subdevice is selected using a string representation: `"db_name:sd_name"`.
+/// See the [page on subdevices](https://files.ettus.com/manual/page_configuration.html) for more information.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SubdevPair {
     db_name: String,
@@ -18,19 +22,27 @@ pub struct SubdevPair {
 }
 
 impl SubdevPair {
+    /// The daughterboard name
     pub fn db_name(&self) -> &str {
         &self.db_name
     }
 
+    /// The subdevice name
     pub fn sd_name(&self) -> &str {
         &self.sd_name
     }
 }
 
+/// A subdevice specification.
+///
+/// This is a list of pairs of daughterboard and subdevice names.
+/// See the [page on subdevices](https://files.ettus.com/manual/page_configuration.html) for more information.
 #[derive(Debug)]
 pub struct SubdevSpec(OwnedHandle<ffi::uhd_subdev_spec_t>);
 
 impl SubdevSpec {
+
+    /// Create an empty subdevice specification.
     pub fn new() -> Self {
         let mut spec: MaybeUninit<_> = MaybeUninit::uninit();
         let empty = CString::new("").unwrap();
@@ -40,16 +52,23 @@ impl SubdevSpec {
         Self(spec)
     }
 
+    /// Create a subdevice specification from a string representation, such as `"A:0"`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the provided string is in an invalid format.
     pub fn from_str(s: &str) -> Self {
         Self::try_from(s).expect("invalid character(s) in subdev spec")
     }
 
+    /// Add a subdevice.
     pub fn push(&mut self, db_name: &str, sd_name: &str) {
         let str = CString::new(format!("{db_name}:{sd_name}")).unwrap();
         try_uhd!(unsafe { ffi::uhd_subdev_spec_push_back(self.0.as_mut_ptr(), str.as_ptr()) })
             .unwrap();
     }
 
+    /// Get the number of subdevices in the specification.
     pub fn len(&self) -> usize {
         let mut blah = 0;
         try_uhd!(unsafe { ffi::uhd_subdev_spec_size(self.0.as_mut_ptr(), addr_of_mut!(blah)) })
@@ -57,10 +76,12 @@ impl SubdevSpec {
         blah
     }
 
+    /// Check if the subdevice specification is empty.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    /// Get the subdevice at the given index.
     pub fn get(&self, index: usize) -> Option<SubdevPair> {
         let mut banana = ffi::uhd_subdev_spec_pair_t {
             db_name: std::ptr::null_mut(),
@@ -80,11 +101,13 @@ impl SubdevSpec {
         })
     }
 
+    /// Iterate over the subdevices.
     pub fn iter(&self) -> impl Iterator<Item = SubdevPair> + '_ {
         (0..self.len()).map(|i| self.get(i).unwrap())
     }
 
-    pub(crate) fn as_handle(&self) -> &OwnedHandle<ffi::uhd_subdev_spec_t> {
+    /// Get the subdevice specification as an [`OwnedHandle`].
+    pub(crate) fn handle(&self) -> &OwnedHandle<ffi::uhd_subdev_spec_t> {
         &self.0
     }
 }
