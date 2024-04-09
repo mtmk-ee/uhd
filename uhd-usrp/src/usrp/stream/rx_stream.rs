@@ -9,14 +9,22 @@ use std::{
 
 use super::OtwFormat;
 use crate::{
-    buffer::SampleBuffer,
-    error::try_uhd,
-    ffi::OwnedHandle,
-    usrp::{metadata::RxMetadata, Usrp},
-    Result, Sample, TimeSpec, UhdError,
+    buffer::SampleBuffer, error::try_uhd, ffi::OwnedHandle, types::RxMetadata, usrp::Usrp, Result,
+    Sample, TimeSpec, UhdError,
 };
 
 pub(crate) type RxStreamHandle = OwnedHandle<uhd_usrp_sys::uhd_rx_streamer>;
+
+pub struct RxStream<T>
+where
+    T: Sample,
+{
+    handle: RxStreamHandle,
+    samples_per_buffer: usize,
+    channels: usize,
+
+    _unsync: PhantomData<Cell<T>>,
+}
 
 pub struct RxStreamBuilder<'usrp, T>
 where
@@ -28,6 +36,82 @@ where
     channels: Option<Vec<usize>>,
     _phantom: PhantomData<T>,
 }
+
+pub struct RxStreamReader<'stream, 'md, T>
+where
+    T: Sample,
+{
+    stream: &'stream mut RxStream<T>,
+    timeout: Option<Duration>,
+    one_packet: bool,
+    metadata: Option<&'md mut RxMetadata>,
+}
+
+pub struct RxStartCommand<'stream, T>
+where
+    T: Sample,
+{
+    stream: &'stream RxStream<T>,
+    at_time: TimeSpec,
+    limit: Option<(usize, bool)>,
+}
+
+impl<T> RxStream<T>
+where
+    T: Sample,
+{
+    pub(crate) fn new(handle: RxStreamHandle) -> Result<Self> {
+        let mut spb = 0;
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_rx_streamer_max_num_samps(handle.as_mut_ptr(), addr_of_mut!(spb))
+        })?;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_rx_streamer_num_channels(handle.as_mut_ptr(), addr_of_mut!(channels))
+        })?;
+
+        Ok(Self {
+            handle,
+            samples_per_buffer: spb,
+            channels,
+            _unsync: PhantomData::default(),
+        })
+    }
+
+    pub(crate) fn handle(&self) -> &RxStreamHandle {
+        &self.handle
+    }
+
+    pub fn max_samples_per_channel(&self) -> usize {
+        self.samples_per_buffer
+    }
+
+    pub fn channels(&self) -> usize {
+        self.channels
+    }
+
+    #[must_use = "commands must be sent to start the stream"]
+    pub fn start_command(&self) -> RxStartCommand<T> {
+        RxStartCommand::new(self)
+    }
+
+    pub fn stop_now(&self) -> Result<()> {
+        let cmd = uhd_usrp_sys::uhd_stream_cmd_t {
+            stream_mode: uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_STOP_CONTINUOUS,
+            ..Default::default()
+        };
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_rx_streamer_issue_stream_cmd(self.handle.as_mut_ptr(), addr_of!(cmd))
+        })?;
+        Ok(())
+    }
+
+    pub fn reader(&mut self) -> RxStreamReader<T> {
+        RxStreamReader::new(self)
+    }
+}
+
+unsafe impl<T> Send for RxStream<T> where T: Sample {}
 
 impl<'usrp, T> RxStreamBuilder<'usrp, T>
 where
@@ -120,83 +204,6 @@ where
     }
 }
 
-pub struct RxStream<T>
-where
-    T: Sample,
-{
-    handle: RxStreamHandle,
-    samples_per_buffer: usize,
-    channels: usize,
-
-    _unsync: PhantomData<Cell<T>>,
-}
-
-unsafe impl<T> Send for RxStream<T> where T: Sample {}
-
-impl<T> RxStream<T>
-where
-    T: Sample,
-{
-    pub(crate) fn new(handle: RxStreamHandle) -> Result<Self> {
-        let mut spb = 0;
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_streamer_max_num_samps(handle.as_mut_ptr(), addr_of_mut!(spb))
-        })?;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_streamer_num_channels(handle.as_mut_ptr(), addr_of_mut!(channels))
-        })?;
-
-        Ok(Self {
-            handle,
-            samples_per_buffer: spb,
-            channels,
-            _unsync: PhantomData::default(),
-        })
-    }
-
-    pub(crate) fn handle(&self) -> &RxStreamHandle {
-        &self.handle
-    }
-
-    pub fn max_samples_per_channel(&self) -> usize {
-        self.samples_per_buffer
-    }
-
-    pub fn channels(&self) -> usize {
-        self.channels
-    }
-
-    #[must_use = "commands must be sent to start the stream"]
-    pub fn start_command(&self) -> RxStartCommand<T> {
-        RxStartCommand::new(self)
-    }
-
-    pub fn stop_now(&self) -> Result<()> {
-        let cmd = uhd_usrp_sys::uhd_stream_cmd_t {
-            stream_mode: uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_STOP_CONTINUOUS,
-            ..Default::default()
-        };
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_rx_streamer_issue_stream_cmd(self.handle.as_mut_ptr(), addr_of!(cmd))
-        })?;
-        Ok(())
-    }
-
-    pub fn reader(&mut self) -> RxStreamReader<T> {
-        RxStreamReader::new(self)
-    }
-}
-
-pub struct RxStartCommand<'stream, T>
-where
-    T: Sample,
-{
-    stream: &'stream RxStream<T>,
-    at_time: TimeSpec,
-    limit: Option<(usize, bool)>,
-}
-
 impl<'stream, T> RxStartCommand<'stream, T>
 where
     T: Sample,
@@ -250,16 +257,6 @@ where
             None => uhd_usrp_sys::uhd_stream_mode_t::UHD_STREAM_MODE_START_CONTINUOUS,
         }
     }
-}
-
-pub struct RxStreamReader<'stream, 'md, T>
-where
-    T: Sample,
-{
-    stream: &'stream mut RxStream<T>,
-    timeout: Option<Duration>,
-    one_packet: bool,
-    metadata: Option<&'md mut RxMetadata>,
 }
 
 impl<'stream, 'md, T> RxStreamReader<'stream, 'md, T>

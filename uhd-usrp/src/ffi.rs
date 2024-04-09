@@ -6,8 +6,19 @@ use std::{
     ptr::{addr_of, addr_of_mut},
 };
 
-use crate::{try_uhd, UhdError, Result};
+use crate::{try_uhd, Result, UhdError};
 pub use uhd_usrp_sys::*;
+
+/// Wrapper for a heap-allocated UHD handle.
+///
+/// This struct wraps a pointer to a heap-allocated UHD handle,
+/// a FFI function pointer to free it. The handle is freed when
+/// this struct is dropped.
+#[derive(Debug)]
+pub(crate) struct OwnedHandle<T> {
+    handle: *mut T,
+    free: unsafe extern "C" fn(*mut *mut T) -> u32,
+}
 
 /// Helper struct for receiving strings via FFI.
 ///
@@ -15,6 +26,65 @@ pub use uhd_usrp_sys::*;
 /// to receive a string via FFI.
 pub(crate) struct FfiString {
     s: Vec<u8>,
+}
+
+/// A vector of strings.
+pub(crate) struct FfiStringVec {
+    handle: OwnedHandle<uhd_usrp_sys::uhd_string_vector_t>,
+}
+
+impl<T> OwnedHandle<T> {
+    /// Allocate a new handle using the given allocator function,
+    /// and return it wrapped in an `OwnedHandle`.
+    ///
+    /// The handle is freed when it is dropped.
+    pub fn new(
+        alloc: unsafe extern "C" fn(*mut *mut T) -> u32,
+        free: unsafe extern "C" fn(*mut *mut T) -> u32,
+    ) -> Result<Self> {
+        let mut handle = MaybeUninit::uninit();
+        try_uhd!(unsafe { alloc(handle.as_mut_ptr()) })?;
+        Ok(Self {
+            handle: unsafe { handle.assume_init() },
+            free,
+        })
+    }
+
+    /// Wrap a pointer to an existing handle.
+    ///
+    /// # Safety
+    ///
+    /// The object pointed to by the handle cannot be freed for the
+    /// entire lifetime of the handle, and it must be safe to free
+    /// it when it is dropped.
+    ///
+    /// The handle must be of a valid type `T`.
+    pub unsafe fn from_ptr(handle: *mut T, free: unsafe extern "C" fn(*mut *mut T) -> u32) -> Self {
+        Self { handle, free }
+    }
+
+    /// Get a pointer to the handle.
+    pub fn as_ptr(&self) -> *const T {
+        self.handle
+    }
+
+    /// Get a mutable pointer to the handle.
+    pub fn as_mut_ptr(&self) -> *mut T {
+        self.handle
+    }
+
+    /// Get a mutable pointer to a mutable pointer to the handle.
+    pub fn as_mut_mut_ptr(&self) -> *mut *mut T {
+        addr_of!(self.handle).cast_mut()
+    }
+}
+
+impl<T> Drop for OwnedHandle<T> {
+    fn drop(&mut self) {
+        unsafe {
+            (self.free)(addr_of_mut!(self.handle));
+        }
+    }
 }
 
 impl FfiString {
@@ -44,11 +114,6 @@ impl FfiString {
             .to_string_lossy()
             .into_owned())
     }
-}
-
-/// A vector of strings.
-pub(crate) struct FfiStringVec {
-    handle: OwnedHandle<uhd_usrp_sys::uhd_string_vector_t>,
 }
 
 impl FfiStringVec {
@@ -112,70 +177,5 @@ impl FfiStringVec {
             result.push(self.get(i).unwrap());
         }
         result
-    }
-}
-
-/// Wrapper for a heap-allocated UHD handle.
-///
-/// This struct wraps a pointer to a heap-allocated UHD handle,
-/// a FFI function pointer to free it. The handle is freed when
-/// this struct is dropped.
-#[derive(Debug)]
-pub(crate) struct OwnedHandle<T> {
-    handle: *mut T,
-    free: unsafe extern "C" fn(*mut *mut T) -> u32,
-}
-
-impl<T> OwnedHandle<T> {
-    /// Allocate a new handle using the given allocator function,
-    /// and return it wrapped in an `OwnedHandle`.
-    ///
-    /// The handle is freed when it is dropped.
-    pub fn new(
-        alloc: unsafe extern "C" fn(*mut *mut T) -> u32,
-        free: unsafe extern "C" fn(*mut *mut T) -> u32,
-    ) -> Result<Self> {
-        let mut handle = MaybeUninit::uninit();
-        try_uhd!(unsafe { alloc(handle.as_mut_ptr()) })?;
-        Ok(Self {
-            handle: unsafe { handle.assume_init() },
-            free,
-        })
-    }
-
-    /// Wrap a pointer to an existing handle.
-    ///
-    /// # Safety
-    ///
-    /// The object pointed to by the handle cannot be freed for the
-    /// entire lifetime of the handle, and it must be safe to free
-    /// it when it is dropped.
-    ///
-    /// The handle must be of a valid type `T`.
-    pub unsafe fn from_ptr(handle: *mut T, free: unsafe extern "C" fn(*mut *mut T) -> u32) -> Self {
-        Self { handle, free }
-    }
-
-    /// Get a pointer to the handle.
-    pub fn as_ptr(&self) -> *const T {
-        self.handle
-    }
-
-    /// Get a mutable pointer to the handle.
-    pub fn as_mut_ptr(&self) -> *mut T {
-        self.handle
-    }
-
-    /// Get a mutable pointer to a mutable pointer to the handle.
-    pub fn as_mut_mut_ptr(&self) -> *mut *mut T {
-        addr_of!(self.handle).cast_mut()
-    }
-}
-
-impl<T> Drop for OwnedHandle<T> {
-    fn drop(&mut self) {
-        unsafe {
-            (self.free)(addr_of_mut!(self.handle));
-        }
     }
 }

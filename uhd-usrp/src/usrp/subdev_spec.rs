@@ -5,11 +5,12 @@ use crate::{
     try_uhd, Result,
 };
 
-#[derive(thiserror::Error, Clone, Debug, PartialEq, Eq)]
-pub enum SubdevSpecParseError {
-    #[error("Invalid format: {0}")]
-    InvalidFormat(String),
-}
+/// A subdevice specification.
+///
+/// This is a list of pairs of daughterboard and subdevice names.
+/// See the [page on subdevices](https://files.ettus.com/manual/page_configuration.html) for more information.
+#[derive(Debug)]
+pub struct SubdevSpec(OwnedHandle<ffi::uhd_subdev_spec_t>);
 
 /// A pair of daughterboard and subdevice names.
 ///
@@ -21,27 +22,13 @@ pub struct SubdevPair {
     sd_name: String,
 }
 
-impl SubdevPair {
-    /// The daughterboard name
-    pub fn db_name(&self) -> &str {
-        &self.db_name
-    }
-
-    /// The subdevice name
-    pub fn sd_name(&self) -> &str {
-        &self.sd_name
-    }
+#[derive(thiserror::Error, Clone, Debug, PartialEq, Eq)]
+pub enum SubdevSpecParseError {
+    #[error("Invalid format: {0}")]
+    InvalidFormat(String),
 }
 
-/// A subdevice specification.
-///
-/// This is a list of pairs of daughterboard and subdevice names.
-/// See the [page on subdevices](https://files.ettus.com/manual/page_configuration.html) for more information.
-#[derive(Debug)]
-pub struct SubdevSpec(OwnedHandle<ffi::uhd_subdev_spec_t>);
-
 impl SubdevSpec {
-
     /// Create an empty subdevice specification.
     pub fn new() -> Self {
         let mut spec: MaybeUninit<_> = MaybeUninit::uninit();
@@ -165,5 +152,17 @@ impl Clone for SubdevSpec {
             spec.push(&pair.db_name(), &pair.sd_name());
         }
         spec
+    }
+}
+
+impl SubdevPair {
+    /// The daughterboard name
+    pub fn db_name(&self) -> &str {
+        &self.db_name
+    }
+
+    /// The subdevice name
+    pub fn sd_name(&self) -> &str {
+        &self.sd_name
     }
 }

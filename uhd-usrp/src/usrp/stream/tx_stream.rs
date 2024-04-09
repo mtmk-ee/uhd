@@ -5,10 +5,7 @@ use std::{
 
 use super::OtwFormat;
 use crate::{
-    error::try_uhd,
-    ffi::OwnedHandle,
-    usrp::{metadata::TxMetadata, Usrp},
-    Result, Sample, SampleBuffer,
+    error::try_uhd, ffi::OwnedHandle, types::TxMetadata, usrp::Usrp, Result, Sample, SampleBuffer,
 };
 
 /// An owned handle for a USRP TX stream.
@@ -24,6 +21,24 @@ where
     args: HashMap<String, String>,
     channels: Vec<usize>,
     _phantom: PhantomData<T>,
+}
+
+pub struct TxStream<T: Sample> {
+    handle: TxStreamHandle,
+    samples_per_buffer: usize,
+    channels: usize,
+
+    _unsync: PhantomData<Cell<T>>,
+}
+
+pub struct TxStreamWriter<'stream, 'md, T>
+where
+    T: Sample,
+{
+    stream: &'stream mut TxStream<T>,
+    timeout: Option<Duration>,
+    one_packet: bool,
+    metadata: Option<&'md mut TxMetadata>,
 }
 
 impl<'usrp, T> TxStreamBuilder<'usrp, T>
@@ -115,14 +130,6 @@ where
     }
 }
 
-pub struct TxStream<T: Sample> {
-    handle: TxStreamHandle,
-    samples_per_buffer: usize,
-    channels: usize,
-
-    _unsync: PhantomData<Cell<T>>,
-}
-
 impl<T: Sample> TxStream<T> {
     pub(crate) fn new(handle: TxStreamHandle) -> Result<Self> {
         let mut spb = 0;
@@ -160,16 +167,6 @@ impl<T: Sample> TxStream<T> {
 }
 
 unsafe impl<T: Sample + Send> Send for TxStream<T> {}
-
-pub struct TxStreamWriter<'stream, 'md, T>
-where
-    T: Sample,
-{
-    stream: &'stream mut TxStream<T>,
-    timeout: Option<Duration>,
-    one_packet: bool,
-    metadata: Option<&'md mut TxMetadata>,
-}
 
 impl<'stream, 'md, T> TxStreamWriter<'stream, 'md, T>
 where

@@ -1,18 +1,13 @@
-mod channel;
+mod channels;
 mod device;
-mod device_args;
+mod hw_info;
 mod mboard;
-mod metadata;
-mod sensor;
 pub mod stream;
 mod subdev_spec;
-mod tune;
 
+pub use channels::{ChannelConfiguration, ChannelConfigurationBuilder};
 pub use device::Usrp;
-pub use device_args::DeviceArgs;
 pub use mboard::{GpioBank, Motherboard};
-pub use metadata::{RxErrorCode, RxMetadata, TxMetadata, TxMetadataBuilder};
-pub use sensor::SensorValue;
 pub use stream::{RxStream, TxStream};
 pub use subdev_spec::{SubdevPair, SubdevSpec, SubdevSpecParseError};
-pub use tune::{TuneRequest, TuneResult};
+pub use hw_info::HardwareInfo;
