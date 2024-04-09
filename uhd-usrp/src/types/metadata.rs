@@ -4,8 +4,28 @@ use num_enum::TryFromPrimitive;
 
 use crate::{ffi::OwnedHandle, Result, TimeSpec, UhdError};
 
+#[derive(Debug)]
+pub struct RxMetadata {
+    handle: OwnedHandle<uhd_usrp_sys::uhd_rx_metadata_t>,
+}
+
+#[derive(Debug)]
 pub struct TxMetadataBuilder {
     inner: TxMetadata,
+}
+
+#[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
+#[repr(u32)]
+pub enum RxErrorCode {
+    None = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_NONE,
+    Timeout = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_TIMEOUT,
+    LateCommand =
+        uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_LATE_COMMAND,
+    BrokenChain =
+        uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_BROKEN_CHAIN,
+    Overflow = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_OVERFLOW,
+    Alignment = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_ALIGNMENT,
+    BadPacket = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_BAD_PACKET,
 }
 
 impl TxMetadataBuilder {
@@ -43,94 +63,6 @@ pub struct TxMetadata {
     time_spec: Option<TimeSpec>,
     start_of_burst: bool,
     end_of_burst: bool,
-}
-
-impl TxMetadata {
-
-    /// Create a new TX metadata struct.
-    ///
-    /// Defaults are:
-    /// - `time_spec: None``
-    /// - `start_of_burst: false``
-    /// - `end_of_burst: false`
-    pub fn new() -> Self {
-        Self {
-            time_spec: None,
-            start_of_burst: false,
-            end_of_burst: false,
-        }
-    }
-
-    /// Get the time the first sample should be sent.
-    ///
-    /// If `None`, the first sample will be sent as soon as possible.
-    pub fn time_spec(&self) -> Option<TimeSpec> {
-        self.time_spec
-    }
-
-    /// Get the start of burst flag.
-    pub fn start_of_burst(&self) -> bool {
-        self.start_of_burst
-    }
-
-    /// Get the end of burst flag.
-    pub fn end_of_burst(&self) -> bool {
-        self.end_of_burst
-    }
-
-    /// Set when to send the first sample.
-    ///
-    /// If `None`, the first sample will be sent as soon as possible.
-    pub fn set_time_spec(&mut self, time_spec: Option<TimeSpec>) {
-        self.time_spec = time_spec;
-    }
-
-    /// End of burst should be set for the last packet in a chain.
-    pub fn set_end_of_burst(&mut self, eob: bool) {
-        self.end_of_burst = eob;
-    }
-
-    /// Start of burst should be set to true for the first packet in a chain.
-    pub fn set_start_of_burst(&mut self, sob: bool) {
-        self.start_of_burst = sob;
-    }
-
-    pub(crate) fn to_handle(&self) -> OwnedHandle<uhd_usrp_sys::uhd_tx_metadata_t> {
-        let mut handle = std::ptr::null_mut();
-        let (full_secs, frac_secs) = self
-            .time_spec
-            .map(|d| (d.full_secs() as i64, d.frac_secs()))
-            .unwrap_or_default();
-        unsafe {
-            uhd_usrp_sys::uhd_tx_metadata_make(
-                addr_of_mut!(handle),
-                self.time_spec.is_some(),
-                full_secs,
-                frac_secs,
-                self.start_of_burst,
-                self.end_of_burst,
-            )
-        };
-        unsafe { OwnedHandle::from_ptr(handle, uhd_usrp_sys::uhd_tx_metadata_free) }
-    }
-}
-
-#[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
-#[repr(u32)]
-pub enum RxErrorCode {
-    None = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_NONE,
-    Timeout = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_TIMEOUT,
-    LateCommand =
-        uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_LATE_COMMAND,
-    BrokenChain =
-        uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_BROKEN_CHAIN,
-    Overflow = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_OVERFLOW,
-    Alignment = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_ALIGNMENT,
-    BadPacket = uhd_usrp_sys::uhd_rx_metadata_error_code_t::UHD_RX_METADATA_ERROR_CODE_BAD_PACKET,
-}
-
-pub struct RxMetadata {
-    handle: OwnedHandle<uhd_usrp_sys::uhd_rx_metadata_t>,
 }
 
 impl RxMetadata {
@@ -245,5 +177,74 @@ impl RxMetadata {
         // since we don't have any solid guarantees about the validity of the
         // returned timespec.
         TimeSpec::try_from_parts(full_secs, frac_secs)
+    }
+}
+
+impl TxMetadata {
+    /// Create a new TX metadata struct.
+    ///
+    /// Defaults are:
+    /// - `time_spec: None``
+    /// - `start_of_burst: false``
+    /// - `end_of_burst: false`
+    pub fn new() -> Self {
+        Self {
+            time_spec: None,
+            start_of_burst: false,
+            end_of_burst: false,
+        }
+    }
+
+    /// Get the time the first sample should be sent.
+    ///
+    /// If `None`, the first sample will be sent as soon as possible.
+    pub fn time_spec(&self) -> Option<TimeSpec> {
+        self.time_spec
+    }
+
+    /// Get the start of burst flag.
+    pub fn start_of_burst(&self) -> bool {
+        self.start_of_burst
+    }
+
+    /// Get the end of burst flag.
+    pub fn end_of_burst(&self) -> bool {
+        self.end_of_burst
+    }
+
+    /// Set when to send the first sample.
+    ///
+    /// If `None`, the first sample will be sent as soon as possible.
+    pub fn set_time_spec(&mut self, time_spec: Option<TimeSpec>) {
+        self.time_spec = time_spec;
+    }
+
+    /// End of burst should be set for the last packet in a chain.
+    pub fn set_end_of_burst(&mut self, eob: bool) {
+        self.end_of_burst = eob;
+    }
+
+    /// Start of burst should be set to true for the first packet in a chain.
+    pub fn set_start_of_burst(&mut self, sob: bool) {
+        self.start_of_burst = sob;
+    }
+
+    pub(crate) fn to_handle(&self) -> OwnedHandle<uhd_usrp_sys::uhd_tx_metadata_t> {
+        let mut handle = std::ptr::null_mut();
+        let (full_secs, frac_secs) = self
+            .time_spec
+            .map(|d| (d.full_secs() as i64, d.frac_secs()))
+            .unwrap_or_default();
+        unsafe {
+            uhd_usrp_sys::uhd_tx_metadata_make(
+                addr_of_mut!(handle),
+                self.time_spec.is_some(),
+                full_secs,
+                frac_secs,
+                self.start_of_burst,
+                self.end_of_burst,
+            )
+        };
+        unsafe { OwnedHandle::from_ptr(handle, uhd_usrp_sys::uhd_tx_metadata_free) }
     }
 }

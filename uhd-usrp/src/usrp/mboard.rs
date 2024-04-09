@@ -2,7 +2,9 @@ use std::{ffi::CString, ptr::addr_of_mut};
 
 use crate::{
     ffi::{FfiString, FfiStringVec, OwnedHandle},
-    try_uhd, Result, SensorValue, TimeSpec, Usrp,
+    try_uhd,
+    types::SensorValue,
+    Result, TimeSpec, Usrp,
 };
 
 use super::subdev_spec::SubdevSpec;
@@ -215,7 +217,7 @@ impl<'a> Motherboard<'a> {
     /// # Errors
     ///
     /// An error is returned if the value for for source is not available for this device.
-    /// Calling [`clock_sources`] will return a list of valid clock sources.
+    /// Calling [`Self::clock_sources`] will return a list of valid clock sources.
     pub fn set_clock_source(&self, source: &str) -> Result<()> {
         let source = CString::new(source).unwrap();
         try_uhd!(unsafe {

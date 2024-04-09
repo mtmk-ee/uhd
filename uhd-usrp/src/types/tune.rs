@@ -20,6 +20,12 @@ pub struct TuneRequest {
     inner: uhd_usrp_sys::uhd_tune_request_t,
 }
 
+/// Contains the RF and DSP tuned frequencies.
+#[derive(Clone, Debug, Default)]
+pub struct TuneResult {
+    inner: uhd_usrp_sys::uhd_tune_result_t,
+}
+
 impl TuneRequest {
     /// Make a new tune request for a particular center frequency.
     ///
@@ -110,12 +116,6 @@ impl TuneRequest {
         self.inner.rf_freq_policy = UHD_TUNE_REQUEST_POLICY_NONE;
         self
     }
-}
-
-/// Contains the RF and DSP tuned frequencies.
-#[derive(Clone, Debug, Default)]
-pub struct TuneResult {
-    inner: uhd_usrp_sys::uhd_tune_result_t,
 }
 
 impl TuneResult {

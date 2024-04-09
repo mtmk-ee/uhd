@@ -1,6 +1,6 @@
 use crate::Result;
 
-use super::Usrp;
+use crate::Usrp;
 
 /// Arguments for specifying a USRP available to the system.
 ///

@@ -445,6 +445,18 @@ macro_rules! mul_impl {
         }
     };
 }
+mul_impl!(i8);
+mul_impl!(i16);
+mul_impl!(i32);
+mul_impl!(i64);
+mul_impl!(isize);
+mul_impl!(u8);
+mul_impl!(u16);
+mul_impl!(u32);
+mul_impl!(u64);
+mul_impl!(usize);
+mul_impl!(f32);
+mul_impl!(f64);
 
 macro_rules! div_impl {
     ($t:ty) => {
@@ -463,20 +475,6 @@ macro_rules! div_impl {
         }
     };
 }
-
-mul_impl!(i8);
-mul_impl!(i16);
-mul_impl!(i32);
-mul_impl!(i64);
-mul_impl!(isize);
-mul_impl!(u8);
-mul_impl!(u16);
-mul_impl!(u32);
-mul_impl!(u64);
-mul_impl!(usize);
-mul_impl!(f32);
-mul_impl!(f64);
-
 div_impl!(i8);
 div_impl!(i16);
 div_impl!(i32);

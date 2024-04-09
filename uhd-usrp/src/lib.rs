@@ -68,19 +68,16 @@ mod buffer;
 mod error;
 pub(crate) mod ffi;
 pub mod logging;
-pub(crate) mod misc_types;
 mod sample;
-mod time;
+pub mod types;
 pub mod usrp;
 
+pub(crate) use crate::error::try_uhd;
 pub use buffer::{ArrayBuffer, SampleBuffer};
 pub use error::{last_error_message, Result, UhdError};
-pub use misc_types::*;
 pub use sample::Sample;
-pub use time::TimeSpec;
+pub use types::{DeviceArgs, RxMetadata, TimeSpec, TxMetadata, TxMetadataBuilder};
 pub use usrp::*;
-
-pub(crate) use crate::error::try_uhd;
 
 /// Returns the UHD version string.
 ///

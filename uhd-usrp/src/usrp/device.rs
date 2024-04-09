@@ -4,13 +4,13 @@ use crate::{
     error::try_uhd,
     ffi::OwnedHandle,
     stream::{RxStreamBuilder, TxStreamBuilder},
+    types::DeviceArgs,
     Result, Sample, TimeSpec,
 };
 
 use super::{
-    channel::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
+    channels::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
     mboard::Motherboard,
-    DeviceArgs,
 };
 
 /// The entry point for interacting with a connected USRP.
@@ -138,7 +138,8 @@ impl Usrp {
     /// # Examples
     ///
     /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, SensorValue, Usrp};
+    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
+    /// use uhd_usrp::types::SensorValue;
     ///
     /// fn fetch_sensor_values(usrp: &Usrp, mboard: usize) -> Result<Vec<SensorValue>> {
     ///     let sensor_values = usrp
@@ -162,63 +163,6 @@ impl Usrp {
             uhd_usrp_sys::uhd_usrp_get_num_mboards(self.handle.as_mut_ptr(), addr_of_mut!(mboards))
         })?;
         Ok(mboards)
-    }
-
-    /// Read current settings for the given Rx channel.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
-    ///
-    /// let usrp = Usrp::open_any().expect("failed to open USRP");
-    /// usrp.mboard(0)
-    ///     .set_rx_subdev_str("A:0")
-    ///     .expect("failed to set subdev spec");
-    ///
-    /// let ants = usrp.rx_config(0)
-    ///     .antennas()
-    ///     .expect("failed to get antennas");
-    /// println!("possible RX antennas: {ants:?}");
-    /// ```
-    #[must_use]
-    pub fn rx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
-        ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
-    }
-
-    /// Get the total number of RX channels on this USRP.
-    pub fn rx_channels(&self) -> Result<usize> {
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_rx_num_channels(
-                self.handle.as_mut_ptr(),
-                addr_of_mut!(channels),
-            )
-        })?;
-        Ok(channels)
-    }
-
-    /// Returns a builder for opening an RX stream.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use num_complex::Complex32;
-    /// use uhd_usrp::Usrp;
-    ///
-    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
-    ///
-    /// // <insert setup code here>
-    ///
-    /// // Open an RX streamer
-    /// let rx_stream = usrp.rx_stream::<Complex32>()
-    ///     .with_channels(&[0])
-    ///     .open()
-    ///     .expect("failed to open RX stream");
-    /// ```
-    #[must_use]
-    pub fn rx_stream<T: Sample>(&self) -> RxStreamBuilder<T> {
-        RxStreamBuilder::new(self)
     }
 
     /// Synchronize the times across all motherboards in this configuration.
@@ -254,6 +198,126 @@ impl Usrp {
         })?;
         Ok(())
     }
+}
+
+/// RX and TX streaming.
+impl Usrp {
+    /// Get the total number of RX channels on this USRP.
+    pub fn rx_channels(&self) -> Result<usize> {
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_rx_num_channels(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(channels),
+            )
+        })?;
+        Ok(channels)
+    }
+
+    /// Returns a builder for opening an RX stream.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use num_complex::Complex32;
+    /// use uhd_usrp::Usrp;
+    ///
+    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
+    ///
+    /// // <insert setup code here>
+    ///
+    /// // Open an RX streamer
+    /// let rx_stream = usrp.rx_stream::<Complex32>()
+    ///     .with_channels(&[0])
+    ///     .open()
+    ///     .expect("failed to open RX stream");
+    /// ```
+    #[must_use]
+    pub fn rx_stream<T: Sample>(&self) -> RxStreamBuilder<T> {
+        RxStreamBuilder::new(self)
+    }
+
+    /// Get the total number of Tx channels on this USRP.
+    pub fn tx_channels(&self) -> Result<usize> {
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(channels),
+            )
+        })?;
+        Ok(channels)
+    }
+
+    /// Returns a builder for opening an TX stream.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use num_complex::Complex32;
+    /// use uhd_usrp::Usrp;
+    ///
+    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
+    ///
+    /// // <insert setup code here>
+    ///
+    /// // Open an TX streamer
+    /// let rx_stream = usrp.tx_stream::<Complex32>()
+    ///     .with_channels(&[0])
+    ///     .open()
+    ///     .expect("failed to open TX stream");
+    /// ```
+    #[must_use]
+    pub fn tx_stream<T: Sample>(&self) -> TxStreamBuilder<T> {
+        TxStreamBuilder::new(self)
+    }
+}
+
+/// RX and TX configuration getters and setters.
+impl Usrp {
+    /// Read current settings for the given Rx channel.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
+    ///
+    /// let usrp = Usrp::open_any().expect("failed to open USRP");
+    /// usrp.mboard(0)
+    ///     .set_rx_subdev_str("A:0")
+    ///     .expect("failed to set subdev spec");
+    ///
+    /// let ants = usrp.rx_config(0)
+    ///     .antennas()
+    ///     .expect("failed to get antennas");
+    /// println!("possible RX antennas: {ants:?}");
+    /// ```
+    #[must_use]
+    pub fn rx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
+        ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
+    }
+
+    /// Read current settings for the given Tx channel.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
+    ///
+    /// let usrp = Usrp::open_any().expect("failed to open USRP");
+    /// usrp.mboard(0)
+    ///     .set_rx_subdev_str("A:0")
+    ///     .expect("failed to set subdev spec");
+    ///
+    /// let ants = usrp.tx_config(0)
+    ///     .antennas()
+    ///     .expect("failed to get antennas");
+    /// println!("possible TX antennas: {ants:?}");
+    /// ```
+    #[must_use]
+    pub fn tx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
+        ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
+    }
 
     /// Write settings for the given RX channel.
     ///
@@ -279,7 +343,6 @@ impl Usrp {
         ChannelConfigurationBuilder::<'a, RX_DIR>::new(self, channel)
     }
 
-
     /// Write settings for the given TX channel.
     ///
     /// # Examples
@@ -302,62 +365,5 @@ impl Usrp {
         channel: usize,
     ) -> ChannelConfigurationBuilder<'a, { TX_DIR }> {
         ChannelConfigurationBuilder::<'a, TX_DIR>::new(self, channel)
-    }
-
-    /// Get the total number of Tx channels on this USRP.
-    pub fn tx_channels(&self) -> Result<usize> {
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(
-                self.handle.as_mut_ptr(),
-                addr_of_mut!(channels),
-            )
-        })?;
-        Ok(channels)
-    }
-
-    /// Read current settings for the given Tx channel.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
-    ///
-    /// let usrp = Usrp::open_any().expect("failed to open USRP");
-    /// usrp.mboard(0)
-    ///     .set_rx_subdev_str("A:0")
-    ///     .expect("failed to set subdev spec");
-    ///
-    /// let ants = usrp.tx_config(0)
-    ///     .antennas()
-    ///     .expect("failed to get antennas");
-    /// println!("possible TX antennas: {ants:?}");
-    /// ```
-    #[must_use]
-    pub fn tx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
-        ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
-    }
-
-    /// Returns a builder for opening an TX stream.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use num_complex::Complex32;
-    /// use uhd_usrp::Usrp;
-    ///
-    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
-    ///
-    /// // <insert setup code here>
-    ///
-    /// // Open an TX streamer
-    /// let rx_stream = usrp.tx_stream::<Complex32>()
-    ///     .with_channels(&[0])
-    ///     .open()
-    ///     .expect("failed to open TX stream");
-    /// ```
-    #[must_use]
-    pub fn tx_stream<T: Sample>(&self) -> TxStreamBuilder<T> {
-        TxStreamBuilder::new(self)
     }
 }
