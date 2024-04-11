@@ -3,6 +3,7 @@
 use std::{
     ffi::{CStr, CString},
     mem::MaybeUninit,
+    ops::{Deref, DerefMut},
     ptr::{addr_of, addr_of_mut},
 };
 
@@ -44,10 +45,12 @@ impl<T> OwnedHandle<T> {
     ) -> Result<Self> {
         let mut handle = MaybeUninit::uninit();
         try_uhd!(unsafe { alloc(handle.as_mut_ptr()) })?;
-        Ok(Self {
-            handle: unsafe { handle.assume_init() },
-            free,
-        })
+        let handle = unsafe { handle.assume_init() };
+        if handle.is_null() {
+            Err(UhdError::Unknown)
+        } else {
+            Ok(Self { handle, free })
+        }
     }
 
     /// Wrap a pointer to an existing handle.
@@ -59,7 +62,14 @@ impl<T> OwnedHandle<T> {
     /// it when it is dropped.
     ///
     /// The handle must be of a valid type `T`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the handle is null.
     pub unsafe fn from_ptr(handle: *mut T, free: unsafe extern "C" fn(*mut *mut T) -> u32) -> Self {
+        if handle.is_null() {
+            panic!("handle is null");
+        }
         Self { handle, free }
     }
 
@@ -87,6 +97,20 @@ impl<T> Drop for OwnedHandle<T> {
     }
 }
 
+impl<T> Deref for OwnedHandle<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { self.handle.as_ref().expect("handle is null") }
+    }
+}
+
+impl<T> DerefMut for OwnedHandle<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { self.handle.as_mut().expect("handle is null") }
+    }
+}
+
 impl FfiString {
     pub fn with_capacity(len: usize) -> Self {
         assert!(len != 0);
@@ -108,7 +132,7 @@ impl FfiString {
     ///
     /// Returns an error if the string is not valid UTF-8, or
     /// is not terminated by a null character.
-    pub fn into_string(self) -> Result<String> {
+    pub fn to_string(&self) -> Result<String> {
         Ok(CStr::from_bytes_until_nul(&self.s)
             .or(Err(UhdError::Unknown))?
             .to_string_lossy()
@@ -167,7 +191,7 @@ impl FfiStringVec {
             )
         })
         .ok()?;
-        s.into_string().ok()
+        s.to_string().ok()
     }
 
     /// Convert this type to a Rust [`Vec`].
