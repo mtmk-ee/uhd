@@ -36,7 +36,7 @@ fn print_db_sensors(usrp: &Usrp, mb_idx: usize, dir: Direction) {
                 Direction::Rx => usrp.rx_config(chan_idx).sensor_value(&sensor).unwrap(),
                 Direction::Tx => usrp.tx_config(chan_idx).sensor_value(&sensor).unwrap(),
             };
-            println!("\t* {} = {}", sensor, sensor_value.to_pp_string().unwrap());
+            println!("\t* {sensor_value}");
         }
     }
 }
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mboard_sensors = usrp.mboard(i).sensor_names().unwrap();
         for sensor in mboard_sensors {
             let value = usrp.mboard(i).sensor_value(&sensor).unwrap();
-            println!("* {} = {}", sensor, value.to_pp_string().unwrap());
+            println!("* {value}");
         }
 
         print_db_sensors(&usrp, i, Direction::Rx);

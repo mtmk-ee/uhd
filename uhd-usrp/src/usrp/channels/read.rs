@@ -37,7 +37,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 name.max_chars(),
             )
         })?;
-        name.into_string()
+        name.to_string()
     }
 
     /// Get a list of antennas associated with the channel.
@@ -322,7 +322,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 buf.max_chars(),
             )
         })?;
-        buf.into_string()
+        buf.to_string()
     }
 
     /// Get a list of possible LO sources.
@@ -454,7 +454,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 handle.as_mut_mut_ptr(),
             )
         })?;
-        Ok(SensorValue::new(handle))
+        SensorValue::from_handle(&handle)
     }
 
     /// Get the name of the frontend.
@@ -473,7 +473,7 @@ impl<'usrp, const D: usize> ChannelConfiguration<'usrp, D> {
                 name.max_chars(),
             )
         })?;
-        name.into_string()
+        name.to_string()
     }
 
     /// Convenience function to print common channel information.

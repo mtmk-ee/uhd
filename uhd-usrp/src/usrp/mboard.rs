@@ -40,7 +40,7 @@ impl<'a> Motherboard<'a> {
                 name.max_chars(),
             )
         })?;
-        name.into_string()
+        name.to_string()
     }
 
     /// Get a list of clock sources of the motherboard.
@@ -156,7 +156,7 @@ impl<'a> Motherboard<'a> {
                 result.max_chars(),
             )
         })?;
-        result.into_string()
+        result.to_string()
     }
 
     /// Get the Rx frontend specification currently in use.
@@ -200,7 +200,7 @@ impl<'a> Motherboard<'a> {
                 handle.as_mut_mut_ptr(),
             )
         })?;
-        Ok(SensorValue::new(handle))
+        SensorValue::from_handle(&handle)
     }
 
     /// Set the clock source for the motherboard.
@@ -410,7 +410,7 @@ impl<'a> Motherboard<'a> {
                 name.max_chars(),
             )
         })?;
-        name.into_string()
+        name.to_string()
     }
 
     /// Get a list of possible time sources.
@@ -507,7 +507,7 @@ impl MotherboardEeprom {
             )
         })
         .ok();
-        value.into_string().ok()
+        value.to_string().ok()
     }
 
     pub fn set_value(&self, key: &str, value: &str) {
@@ -552,7 +552,7 @@ impl DaughterboardEeprom {
                 id.max_chars(),
             )
         })?;
-        Ok(id.into_string().unwrap())
+        Ok(id.to_string().unwrap())
     }
 
     pub fn set_id(&self, id: &str) {
@@ -570,7 +570,7 @@ impl DaughterboardEeprom {
                 id.max_chars(),
             )
         })?;
-        Ok(id.into_string().unwrap())
+        Ok(id.to_string().unwrap())
     }
 
     pub fn set_serial_number(&self, serial: &str) {
