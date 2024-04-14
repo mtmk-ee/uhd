@@ -1,6 +1,6 @@
-use std::ffi::CStr;
+use std::{ffi::CStr, mem::MaybeUninit};
 
-use crate::{Result, UhdError};
+use crate::{try_uhd, Result, UhdError, Usrp};
 
 pub struct HardwareInfo {
     mboard_id: String,
@@ -14,6 +14,30 @@ pub struct HardwareInfo {
 }
 
 impl HardwareInfo {
+    pub(crate) fn new_rx(usrp: &Usrp, channel: usize) -> Result<Self> {
+        let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_rx_info_t> = MaybeUninit::uninit();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_rx_info(
+                usrp.handle().as_mut_ptr(),
+                channel,
+                info.as_mut_ptr(),
+            )
+        })?;
+        Self::from_rx_raw(unsafe { &info.assume_init() })
+    }
+
+    pub(crate) fn new_tx(usrp: &Usrp, channel: usize) -> Result<Self> {
+        let mut info: MaybeUninit<uhd_usrp_sys::uhd_usrp_tx_info_t> = MaybeUninit::uninit();
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_tx_info(
+                usrp.handle().as_mut_ptr(),
+                channel,
+                info.as_mut_ptr(),
+            )
+        })?;
+        Self::from_tx_raw(unsafe { &info.assume_init() })
+    }
+
     pub(crate) fn from_rx_raw(info: &uhd_usrp_sys::uhd_usrp_rx_info_t) -> Result<Self> {
         let fetch = |s| unsafe {
             CStr::from_ptr(s)

@@ -2,7 +2,7 @@ use std::error::Error;
 
 use clap::Parser;
 
-use uhd_usrp::Usrp;
+use uhd_usrp::{Channel, Usrp};
 
 #[derive(clap::Parser)]
 struct Args {
@@ -16,27 +16,19 @@ enum Direction {
 }
 
 fn print_db_sensors(usrp: &Usrp, mb_idx: usize, dir: Direction) {
-    let sensors = match dir {
+    let spec = match dir {
         Direction::Rx => usrp.mboard(mb_idx).rx_subdev_spec().unwrap(),
         Direction::Tx => usrp.mboard(mb_idx).tx_subdev_spec().unwrap(),
     };
-    let n_chans = sensors.len();
-
-    for chan_idx in 0..n_chans {
-        match dir {
-            Direction::Rx => println!("* Rx Channel {chan_idx}:"),
-            Direction::Tx => println!("* Tx Channel {chan_idx}:"),
-        }
-        let sensors = match dir {
-            Direction::Rx => usrp.rx_config(chan_idx).sensor_names().unwrap(),
-            Direction::Tx => usrp.tx_config(chan_idx).sensor_names().unwrap(),
+    for chan_idx in 0..spec.len() {
+        let channel = match dir {
+            Direction::Rx => Channel::Rx(chan_idx),
+            Direction::Tx => Channel::Tx(chan_idx),
         };
-        for sensor in sensors {
-            let sensor_value = match dir {
-                Direction::Rx => usrp.rx_config(chan_idx).sensor_value(&sensor).unwrap(),
-                Direction::Tx => usrp.tx_config(chan_idx).sensor_value(&sensor).unwrap(),
-            };
-            println!("\t* {sensor_value}");
+        println!("* {channel}:");
+        let channel = usrp.channel(channel).unwrap();
+        for sensor in channel.iter_sensor_values().unwrap() {
+            println!("\t* {sensor}");
         }
     }
 }

@@ -5,11 +5,11 @@ use crate::{
     ffi::OwnedHandle,
     stream::{RxStreamBuilder, TxStreamBuilder},
     types::DeviceArgs,
-    Result, Sample, TimeSpec,
+    Result, Sample, TimeSpec, UhdError,
 };
 
 use super::{
-    channels::{ChannelConfiguration, ChannelConfigurationBuilder, RX_DIR, TX_DIR},
+    channels::{Channel, ChannelConfig},
     mboard::Motherboard,
 };
 
@@ -26,7 +26,7 @@ use super::{
 ///
 /// use std::time::{Duration, Instant};
 /// use num_complex::Complex32;
-/// use uhd_usrp::{Usrp, timespec};
+/// use uhd_usrp::{Channel, Usrp, timespec};
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     // Open a network-attached USRP (e.g. x310).
@@ -34,7 +34,7 @@ use super::{
 ///     let mut usrp = Usrp::open_with_args("addr=192.168.10.4")?;
 ///
 ///     // Configure the USRP's RX channel zero
-///     usrp.set_rx_config(0)
+///     usrp.channel(Channel::Rx(0))?
 ///         .set_antenna("RX2")?
 ///         .set_center_freq(1030e6)?
 ///         .set_bandwidth(2e6)?
@@ -202,18 +202,6 @@ impl Usrp {
 
 /// RX and TX streaming.
 impl Usrp {
-    /// Get the total number of RX channels on this USRP.
-    pub fn rx_channels(&self) -> Result<usize> {
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_rx_num_channels(
-                self.handle.as_mut_ptr(),
-                addr_of_mut!(channels),
-            )
-        })?;
-        Ok(channels)
-    }
-
     /// Returns a builder for opening an RX stream.
     ///
     /// # Examples
@@ -235,18 +223,6 @@ impl Usrp {
     #[must_use]
     pub fn rx_stream<T: Sample>(&self) -> RxStreamBuilder<T> {
         RxStreamBuilder::new(self)
-    }
-
-    /// Get the total number of Tx channels on this USRP.
-    pub fn tx_channels(&self) -> Result<usize> {
-        let mut channels = 0;
-        try_uhd!(unsafe {
-            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(
-                self.handle.as_mut_ptr(),
-                addr_of_mut!(channels),
-            )
-        })?;
-        Ok(channels)
     }
 
     /// Returns a builder for opening an TX stream.
@@ -280,90 +256,53 @@ impl Usrp {
     /// # Examples
     ///
     /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
+    /// use uhd_usrp::{Channel, DeviceArgs, Result, Usrp};
     ///
     /// let usrp = Usrp::open_any().expect("failed to open USRP");
     /// usrp.mboard(0)
     ///     .set_rx_subdev_str("A:0")
     ///     .expect("failed to set subdev spec");
     ///
-    /// let ants = usrp.rx_config(0)
+    /// let ants = usrp.channel(Channel::Rx(0))
+    ///     .unwrap()
     ///     .antennas()
     ///     .expect("failed to get antennas");
     /// println!("possible RX antennas: {ants:?}");
     /// ```
     #[must_use]
-    pub fn rx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { RX_DIR }> {
-        ChannelConfiguration::<'a, RX_DIR>::new(self, channel)
+    pub fn channel(&self, channel: Channel) -> Result<ChannelConfig> {
+        let n = match channel {
+            Channel::Rx(_) => self.rx_channels()?,
+            Channel::Tx(_) => self.tx_channels()?,
+        };
+        if channel.index() < n {
+            Ok(ChannelConfig::new(self, channel))
+        } else {
+            Err(UhdError::Index)
+        }
     }
 
-    /// Read current settings for the given Tx channel.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
-    ///
-    /// let usrp = Usrp::open_any().expect("failed to open USRP");
-    /// usrp.mboard(0)
-    ///     .set_rx_subdev_str("A:0")
-    ///     .expect("failed to set subdev spec");
-    ///
-    /// let ants = usrp.tx_config(0)
-    ///     .antennas()
-    ///     .expect("failed to get antennas");
-    /// println!("possible TX antennas: {ants:?}");
-    /// ```
-    #[must_use]
-    pub fn tx_config<'a>(&'a self, channel: usize) -> ChannelConfiguration<'a, { TX_DIR }> {
-        ChannelConfiguration::<'a, TX_DIR>::new(self, channel)
+    /// Get the total number of RX channels on this USRP.
+    pub fn rx_channels(&self) -> Result<usize> {
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_rx_num_channels(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(channels),
+            )
+        })?;
+        Ok(channels)
     }
 
-    /// Write settings for the given RX channel.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
-    ///
-    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
-    /// usrp.mboard(0)
-    ///     .set_rx_subdev_str("A:0")
-    ///     .expect("failed to set subdev spec");
-    ///
-    /// let ants = usrp.set_rx_config(0)
-    ///     .set_antenna("RX2")
-    ///     .expect("failed to set antenna");
-    /// ```
-    #[must_use]
-    pub fn set_rx_config<'a>(
-        &'a mut self,
-        channel: usize,
-    ) -> ChannelConfigurationBuilder<'a, { RX_DIR }> {
-        ChannelConfigurationBuilder::<'a, RX_DIR>::new(self, channel)
-    }
-
-    /// Write settings for the given TX channel.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use uhd_usrp::{DeviceArgs, Result, Usrp};
-    ///
-    /// let mut usrp = Usrp::open_any().expect("failed to open USRP");
-    /// usrp.mboard(0)
-    ///     .set_tx_subdev_str("A:0")
-    ///     .expect("failed to set subdev spec");
-    ///
-    /// let ants = usrp.set_tx_config(0)
-    ///     .set_antenna("TX/RX")
-    ///     .expect("failed to set antenna");
-    /// ```
-    #[must_use]
-    pub fn set_tx_config<'a>(
-        &'a mut self,
-        channel: usize,
-    ) -> ChannelConfigurationBuilder<'a, { TX_DIR }> {
-        ChannelConfigurationBuilder::<'a, TX_DIR>::new(self, channel)
+    /// Get the total number of Tx channels on this USRP.
+    pub fn tx_channels(&self) -> Result<usize> {
+        let mut channels = 0;
+        try_uhd!(unsafe {
+            uhd_usrp_sys::uhd_usrp_get_tx_num_channels(
+                self.handle.as_mut_ptr(),
+                addr_of_mut!(channels),
+            )
+        })?;
+        Ok(channels)
     }
 }

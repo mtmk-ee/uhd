@@ -17,7 +17,7 @@
 //! ```no_run
 //! use std::time::{Duration, Instant};
 //! use num_complex::Complex32;
-//! use uhd_usrp::{Usrp, timespec};
+//! use uhd_usrp::{Channel, Usrp, timespec};
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Open a network-attached USRP (e.g. x310).
@@ -25,7 +25,7 @@
 //!     let mut usrp = Usrp::open_with_args("addr=192.168.10.4")?;
 //!
 //!     // Configure the USRP's RX channel zero
-//!     usrp.set_rx_config(0)
+//!     usrp.channel(Channel::Rx(0))?
 //!         .set_antenna("RX2")?
 //!         .set_center_freq(1030e6)?
 //!         .set_bandwidth(2e6)?

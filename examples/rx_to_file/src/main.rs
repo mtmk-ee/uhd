@@ -11,7 +11,7 @@ use bytemuck::cast_slice;
 use clap::Parser;
 use num_complex::Complex32;
 
-use uhd_usrp::{timespec, RxMetadata, Usrp};
+use uhd_usrp::{timespec, Channel, RxMetadata, Usrp};
 
 type Sample = Complex32;
 
@@ -82,20 +82,15 @@ fn run_recv(usrp: Usrp, send: Sender<Vec<Sample>>, dur: Duration) -> Result<(), 
 fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    let mut usrp = Usrp::open_with_args(&args.args)?;
-    usrp.set_rx_config(args.channel)
+    let usrp = Usrp::open_with_args(&args.args)?;
+    usrp.channel(Channel::Rx(args.channel))
+        .expect("invalid channel")
         .set_antenna(&args.ant)?
         .set_center_freq(args.freq)?
         .set_bandwidth(args.bw)?
         .set_gain(None, args.gain)?
-        .set_sample_rate(args.rate)?;
-
-    let config = usrp.rx_config(args.channel);
-    println!("Antenna: {}", config.antenna()?);
-    println!("Freq: {}", config.center_freq()?);
-    println!("Bandwidth: {}", config.bandwidth()?);
-    println!("Gain: {}", config.gain(None)?);
-    println!("Rate: {}", config.sample_rate()?);
+        .set_sample_rate(args.rate)?
+        .print_common()?;
 
     let (send, recv): (Sender<Vec<Complex32>>, Receiver<Vec<Complex32>>) = channel();
     let thr = std::thread::spawn(move || write_to_file(recv, args.file).unwrap());
